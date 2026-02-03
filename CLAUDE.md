@@ -1,0 +1,47 @@
+# GhostFlow
+
+## Project Overview
+
+**GhostFlow** is a human-readable Ethereum transaction analysis tool.
+
+- **Input**: Transaction hash
+- **Output**: Labeled, semantically-grouped token flow visualization
+
+## Core Concept
+
+GhostFlow parses ERC-20 token transfers from Ethereum transactions and presents them in a meaningful way.
+
+### The Problem
+
+Tools like Etherscan show raw token transfers as flat lists:
+```
+From → To → Amount
+```
+
+This makes complex DeFi transactions difficult to understand (see `docs/image.png` for an example showing 21 unorganized transfers).
+
+### The Solution
+
+GhostFlow groups and labels transfers by their semantic meaning, turning raw data into understandable DeFi operations.
+
+## Tech Stack
+
+- **Monorepo**: pnpm workspaces
+- **Frontend**: React + Vite (TypeScript)
+- **Backend**: Node.js + Fastify (TypeScript)
+- **Shared**: Common types and utilities package
+
+## Planned Features
+
+### Protocol Support
+
+- **Aave**: Supply, borrow, repay, withdraw, liquidation
+- **Uniswap**: Swaps, add/remove liquidity
+- **ERC20**: Mints (from `0x0`) and burns (to `0x0`)
+- **ERC4626**: Vault deposits and redemptions
+
+## Development Rules
+
+- **Package Manager**: pnpm (required)
+- Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
+- Create maintainable code that follows the best practices and design patterns, including creational (singleton, factory, abstract factory, builders), behavioural and structural patterns. But do not over-engineer! Keep a good balance between simplicity, readability and maintainability

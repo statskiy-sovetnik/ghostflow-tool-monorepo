@@ -1,0 +1,15 @@
+{
+  "name": "ghostflow-tool-monorepo",
+  "version": "1.0.0",
+  "description": "Human-readable Ethereum transaction analysis tool",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter frontend dev",
+    "build": "pnpm --filter frontend build",
+    "preview": "pnpm --filter frontend preview"
+  },
+  "keywords": ["ethereum", "transaction", "analyzer", "defi"],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.26.1"
+}
