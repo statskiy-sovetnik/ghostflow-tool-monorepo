@@ -4,10 +4,8 @@ import App, { validateTxHash } from './App';
 
 // Real mainnet transactions that exist
 const REAL_TX_HASHES = {
-  // First ever Ethereum transaction (Vitalik's test tx from 2015)
-  firstEthTx: '0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060',
-  // Genesis block coinbase (earliest possible tx)
-  genesisReward: '0xe9e91f1ee4b56c0df2e9f06c2b8c27c6076195a88a7b8537ba8313d80e6f124e',
+  tx1: '0x4c4d15f80f7d2240dfe7d3ae7d4d0d296236ecd9285c25918dbd5bf537916728',
+  tx2: '0x50539d4fa5bbe6aab765429b943ef35d8c21887e674e3eb3bc73d938174e6b2d',
 };
 
 // Fake hash - valid format but doesn't exist on chain
@@ -30,7 +28,7 @@ describe('validateTxHash', () => {
 
   it('returns error for wrong length', () => {
     expect(validateTxHash('0x5c504ed432cb51138bcf09aa5e8a')).toBe(
-      'Transaction hash must be 66 characters (got 32)'
+      'Transaction hash must be 66 characters (got 30)'
     );
   });
 
@@ -41,7 +39,7 @@ describe('validateTxHash', () => {
   });
 
   it('returns null for valid hash', () => {
-    expect(validateTxHash(REAL_TX_HASHES.firstEthTx)).toBeNull();
+    expect(validateTxHash(REAL_TX_HASHES.tx1)).toBeNull();
   });
 });
 
@@ -68,14 +66,14 @@ describe('App component', () => {
 });
 
 describeIntegration('App component (integration tests with network)', () => {
-  it('shows success message for real transaction (firstEthTx)', async () => {
+  it('shows success message for real transaction (tx1)', async () => {
     const user = userEvent.setup();
     render(<App />);
 
     const input = screen.getByPlaceholderText('0x...');
     const button = screen.getByRole('button', { name: 'Analyze' });
 
-    await user.type(input, REAL_TX_HASHES.firstEthTx);
+    await user.type(input, REAL_TX_HASHES.tx1);
     await user.click(button);
 
     await waitFor(
@@ -86,14 +84,14 @@ describeIntegration('App component (integration tests with network)', () => {
     );
   }, 20000);
 
-  it('shows success message for second real transaction (genesisReward)', async () => {
+  it('shows success message for second real transaction (tx2)', async () => {
     const user = userEvent.setup();
     render(<App />);
 
     const input = screen.getByPlaceholderText('0x...');
     const button = screen.getByRole('button', { name: 'Analyze' });
 
-    await user.type(input, REAL_TX_HASHES.genesisReward);
+    await user.type(input, REAL_TX_HASHES.tx2);
     await user.click(button);
 
     await waitFor(

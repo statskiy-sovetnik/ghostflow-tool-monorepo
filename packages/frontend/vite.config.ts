@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => {
     envDir: '../..',
     test: {
       globals: true,
-      environment: 'jsdom',
+      environment: 'happy-dom',
       setupFiles: './src/test/setup.ts',
       env,
     },
