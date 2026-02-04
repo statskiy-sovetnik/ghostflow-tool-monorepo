@@ -1,3 +1,8 @@
+### Local Server
+``` shell
+pnpm dev
+```
+
 ### Tests
 
 Frontend:

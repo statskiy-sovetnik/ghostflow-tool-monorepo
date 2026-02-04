@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import App, { validateTxHash } from './App';
+import App, { validateTxHash, formatTransferAmount, truncateAddress } from './App';
 
 // Real mainnet transactions that exist
 const REAL_TX_HASHES = {
@@ -43,6 +43,33 @@ describe('validateTxHash', () => {
   });
 });
 
+describe('formatTransferAmount', () => {
+  it('formats whole numbers without decimals', () => {
+    expect(formatTransferAmount('1000000000000000000', 18)).toBe('1');
+    expect(formatTransferAmount('5000000', 6)).toBe('5');
+  });
+
+  it('formats amounts with decimal places', () => {
+    expect(formatTransferAmount('1500000000000000000', 18)).toBe('1.5');
+    expect(formatTransferAmount('3250000000', 6)).toBe('3250');
+  });
+
+  it('trims trailing zeros from decimal part', () => {
+    expect(formatTransferAmount('1100000000000000000', 18)).toBe('1.1');
+  });
+
+  it('handles zero amount', () => {
+    expect(formatTransferAmount('0', 18)).toBe('0');
+  });
+});
+
+describe('truncateAddress', () => {
+  it('truncates address to first 6 and last 4 characters', () => {
+    expect(truncateAddress('0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45')).toBe('0x68b3...Fc45');
+    expect(truncateAddress('0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2')).toBe('0xC02a...6Cc2');
+  });
+});
+
 describe('App component', () => {
   it('renders form with input and button', () => {
     render(<App />);
@@ -66,7 +93,7 @@ describe('App component', () => {
 });
 
 describeIntegration('App component (integration tests with network)', () => {
-  it('shows success message for real transaction (tx1)', async () => {
+  it('shows success message and transfer list for real transaction (tx1)', async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -82,6 +109,13 @@ describeIntegration('App component (integration tests with network)', () => {
       },
       { timeout: 15000 }
     );
+
+    // Check that transfer list is displayed with mock data
+    expect(screen.getByText('Token Transfers (3)')).toBeInTheDocument();
+    expect(screen.getByText('Transfer 1')).toBeInTheDocument();
+    expect(screen.getByText('ETH')).toBeInTheDocument();
+    expect(screen.getByText('WETH')).toBeInTheDocument();
+    expect(screen.getByText('USDC')).toBeInTheDocument();
   }, 20000);
 
   it('shows success message for second real transaction (tx2)', async () => {
@@ -100,6 +134,9 @@ describeIntegration('App component (integration tests with network)', () => {
       },
       { timeout: 15000 }
     );
+
+    // Verify transfer list appears
+    expect(screen.getByText('Token Transfers (3)')).toBeInTheDocument();
   }, 20000);
 
   it('shows not found error for fake hash that does not exist on chain', async () => {
@@ -118,5 +155,8 @@ describeIntegration('App component (integration tests with network)', () => {
       },
       { timeout: 15000 }
     );
+
+    // Verify no transfer list appears on error
+    expect(screen.queryByText('Token Transfers')).not.toBeInTheDocument();
   }, 20000);
 });

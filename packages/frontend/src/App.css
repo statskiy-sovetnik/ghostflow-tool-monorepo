@@ -148,3 +148,73 @@ body {
     transform: rotate(360deg);
   }
 }
+
+/* Transfer List */
+.transfers {
+  margin-top: 24px;
+  padding: 20px;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.transfers-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 16px;
+}
+
+.transfers-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.transfers-empty {
+  margin-top: 24px;
+  padding: 20px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  color: #666;
+  text-align: center;
+}
+
+.transfer-item {
+  padding: 12px 16px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e8e8e8;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #333;
+}
+
+.transfer-index {
+  font-weight: 600;
+  color: #4a90d9;
+}
+
+.transfer-amount {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.transfer-token {
+  font-weight: 600;
+  color: #2e7d32;
+  background: #e8f5e9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.transfer-address {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  font-size: 0.85rem;
+  color: #666;
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
