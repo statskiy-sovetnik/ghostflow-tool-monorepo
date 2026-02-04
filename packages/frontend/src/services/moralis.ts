@@ -17,4 +17,16 @@ export async function initMoralis(): Promise<void> {
   initialized = true;
 }
 
+export async function fetchTokenTransfers(transactionHash: string) {
+  await initMoralis();
+
+  const response = await Moralis.EvmApi.transaction.getTransaction({
+    transactionHash,
+    chain: Moralis.EvmUtils.EvmChain.ETHEREUM,
+  });
+
+  console.log('Moralis response:', response?.toJSON());
+  return response;
+}
+
 export { Moralis };

@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react';
-import { JsonRpcProvider } from 'ethers';
+import { fetchTokenTransfers } from './services/moralis';
 
 interface TokenTransfer {
   from: string;
@@ -21,18 +21,6 @@ type ResultState =
   | { type: 'error'; message: string };
 
 const TX_HASH_REGEX = /^0x[a-fA-F0-9]{64}$/;
-const ALCHEMY_RPC_URL = `https://eth-mainnet.g.alchemy.com/v2/${import.meta.env.VITE_ALCHEMY_API_KEY}`;
-const FALLBACK_RPC_URL = 'https://eth.llamarpc.com';
-
-async function fetchTransactionReceipt(hash: string) {
-  try {
-    const provider = new JsonRpcProvider(ALCHEMY_RPC_URL);
-    return await provider.getTransactionReceipt(hash);
-  } catch {
-    const fallbackProvider = new JsonRpcProvider(FALLBACK_RPC_URL);
-    return await fallbackProvider.getTransactionReceipt(hash);
-  }
-}
 
 export function formatTransferAmount(amount: string, decimals: number): string {
   const divisor = BigInt(10 ** decimals);
@@ -142,9 +130,9 @@ function App() {
     setResult({ type: 'loading' });
 
     try {
-      const receipt = await fetchTransactionReceipt(trimmedHash);
+      const response = await fetchTokenTransfers(trimmedHash);
 
-      if (receipt) {
+      if (response) {
         const transactionResult = createMockTransactionResult(trimmedHash);
         setResult({ type: 'success', result: transactionResult });
       } else {
