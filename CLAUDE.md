@@ -24,6 +24,10 @@ This makes complex DeFi transactions difficult to understand (see `docs/image.pn
 
 GhostFlow groups and labels transfers by their semantic meaning, turning raw data into understandable DeFi operations.
 
+## Context7 library IDs
+- Vitest: /antfu/vitest
+- Ethers.js: 
+
 ## Tech Stack
 
 - **Monorepo**: pnpm workspaces

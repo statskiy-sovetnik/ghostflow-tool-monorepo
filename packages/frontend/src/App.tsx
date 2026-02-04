@@ -21,7 +21,7 @@ async function fetchTransactionReceipt(hash: string) {
   }
 }
 
-function validateTxHash(hash: string): string | null {
+export function validateTxHash(hash: string): string | null {
   if (!hash) {
     return 'Please enter a transaction hash';
   }
