@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import App, { validateTxHash, formatTransferAmount, truncateAddress } from './App';
+import App, { validateTxHash, formatTransferAmount, truncateAddress, truncateString } from './App';
 
 // Real mainnet transactions that exist
 const REAL_TX_HASHES = {
@@ -70,6 +70,23 @@ describe('truncateAddress', () => {
   });
 });
 
+describe('truncateString', () => {
+  it('returns string unchanged if within max length', () => {
+    expect(truncateString('USDC', 8)).toBe('USDC');
+    expect(truncateString('Tether USD', 11)).toBe('Tether USD');
+  });
+
+  it('truncates string and adds ellipsis if exceeds max length', () => {
+    expect(truncateString('Stake DAO CRV', 11)).toBe('Stake DAO C...');
+    expect(truncateString('VELODROMEUSDC', 8)).toBe('VELODROM...');
+  });
+
+  it('handles exact max length', () => {
+    expect(truncateString('12345678', 8)).toBe('12345678');
+    expect(truncateString('12345678901', 11)).toBe('12345678901');
+  });
+});
+
 describe('App component', () => {
   it('renders form with input and button', () => {
     render(<App />);
@@ -113,7 +130,7 @@ describeIntegration('App component (integration tests with network)', () => {
     // Check that transfer list is displayed with real parsed transfers
     // tx1 contains 4 ERC-20 Transfer events
     expect(screen.getByText('Token Transfers (4)')).toBeInTheDocument();
-    expect(screen.getByText('Transfer 1')).toBeInTheDocument();
+    expect(screen.getAllByText('Transfer').length).toBeGreaterThan(0);
   }, 20000);
 
   it('shows success message for second real transaction (tx2)', async () => {

@@ -30,6 +30,13 @@ export function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+export function truncateString(str: string, maxLength: number): string {
+  if (str.length <= maxLength) {
+    return str;
+  }
+  return `${str.slice(0, maxLength)}...`;
+}
+
 export function isMint(transfer: TokenTransfer): boolean {
   return transfer.from.toLowerCase() === ZERO_ADDRESS;
 }
@@ -69,7 +76,9 @@ function TransferList({ transfers }: { transfers: TokenTransfer[] }) {
       <ul className="transfers-list">
         {transfers.map((transfer, index) => {
           const amount = formatTransferAmount(transfer.amount, transfer.decimals);
-          const token = `${transfer.tokenName} (${transfer.tokenSymbol})`;
+          const tokenName = truncateString(transfer.tokenName, 11);
+          const tokenSymbol = truncateString(transfer.tokenSymbol, 8);
+          const token = `${tokenName} (${tokenSymbol})`;
 
           if (isMint(transfer)) {
             return (
