@@ -52,7 +52,7 @@ export async function fetchTokenTransfers(
       transfers: [],
     };
   }
-
+  
   // Get unique token addresses
   const uniqueAddresses = [...new Set(rawTransfers.map((t) => t.tokenAddress))];
 

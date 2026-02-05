@@ -9,6 +9,7 @@ type ResultState =
   | { type: 'error'; message: string };
 
 const TX_HASH_REGEX = /^0x[a-fA-F0-9]{64}$/;
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 export function formatTransferAmount(amount: string, decimals: number): string {
   const divisor = BigInt(10 ** decimals);
@@ -27,6 +28,14 @@ export function formatTransferAmount(amount: string, decimals: number): string {
 
 export function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+export function isMint(transfer: TokenTransfer): boolean {
+  return transfer.from.toLowerCase() === ZERO_ADDRESS;
+}
+
+export function isBurn(transfer: TokenTransfer): boolean {
+  return transfer.to.toLowerCase() === ZERO_ADDRESS;
 }
 
 export function validateTxHash(hash: string): string | null {
@@ -58,15 +67,42 @@ function TransferList({ transfers }: { transfers: TokenTransfer[] }) {
     <div className="transfers">
       <h3 className="transfers-title">Token Transfers ({transfers.length})</h3>
       <ul className="transfers-list">
-        {transfers.map((transfer, index) => (
-          <li key={`${transfer.from}-${transfer.to}-${index}`} className="transfer-item">
-            <span className="transfer-index">Transfer {index + 1}</span>{' '}
-            of <span className="transfer-amount">{formatTransferAmount(transfer.amount, transfer.decimals)}</span>{' '}
-            <span className="transfer-token">{transfer.tokenName} ({transfer.tokenSymbol})</span>{' '}
-            from <span className="transfer-address">{truncateAddress(transfer.from)}</span>{' '}
-            to <span className="transfer-address">{truncateAddress(transfer.to)}</span>
-          </li>
-        ))}
+        {transfers.map((transfer, index) => {
+          const amount = formatTransferAmount(transfer.amount, transfer.decimals);
+          const token = `${transfer.tokenName} (${transfer.tokenSymbol})`;
+
+          if (isMint(transfer)) {
+            return (
+              <li key={`${transfer.from}-${transfer.to}-${index}`} className="transfer-item">
+                <span className="transfer-index">Mint</span>{' '}
+                of <span className="transfer-amount">{amount}</span>{' '}
+                <span className="transfer-token">{token}</span>{' '}
+                to <span className="transfer-address">{truncateAddress(transfer.to)}</span>
+              </li>
+            );
+          }
+
+          if (isBurn(transfer)) {
+            return (
+              <li key={`${transfer.from}-${transfer.to}-${index}`} className="transfer-item">
+                <span className="transfer-index">Burn</span>{' '}
+                of <span className="transfer-amount">{amount}</span>{' '}
+                <span className="transfer-token">{token}</span>{' '}
+                from <span className="transfer-address">{truncateAddress(transfer.from)}</span>
+              </li>
+            );
+          }
+
+          return (
+            <li key={`${transfer.from}-${transfer.to}-${index}`} className="transfer-item">
+              <span className="transfer-index">Transfer</span>{' '}
+              of <span className="transfer-amount">{amount}</span>{' '}
+              <span className="transfer-token">{token}</span>{' '}
+              from <span className="transfer-address">{truncateAddress(transfer.from)}</span>{' '}
+              to <span className="transfer-address">{truncateAddress(transfer.to)}</span>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
