@@ -1,18 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { fetchTokenTransfers } from './services/moralis';
-
-interface TokenTransfer {
-  from: string;
-  to: string;
-  tokenName: string;
-  amount: string;
-  decimals: number;
-}
-
-interface TransactionResult {
-  txHash: string;
-  transfers: TokenTransfer[];
-}
+import type { TokenTransfer, TransactionResult } from './types/moralis';
 
 type ResultState =
   | { type: 'idle' }
@@ -39,34 +27,6 @@ export function formatTransferAmount(amount: string, decimals: number): string {
 
 export function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
-
-const MOCK_TRANSFERS: TokenTransfer[] = [
-  {
-    from: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45',
-    to: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-    tokenName: 'ETH',
-    amount: '1000000000000000000',
-    decimals: 18,
-  },
-  {
-    from: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-    to: '0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640',
-    tokenName: 'WETH',
-    amount: '1000000000000000000',
-    decimals: 18,
-  },
-  {
-    from: '0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640',
-    to: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45',
-    tokenName: 'USDC',
-    amount: '3250000000',
-    decimals: 6,
-  },
-];
-
-function createMockTransactionResult(txHash: string): TransactionResult {
-  return { txHash, transfers: MOCK_TRANSFERS };
 }
 
 export function validateTxHash(hash: string): string | null {
@@ -102,7 +62,7 @@ function TransferList({ transfers }: { transfers: TokenTransfer[] }) {
           <li key={`${transfer.from}-${transfer.to}-${index}`} className="transfer-item">
             <span className="transfer-index">Transfer {index + 1}</span>{' '}
             of <span className="transfer-amount">{formatTransferAmount(transfer.amount, transfer.decimals)}</span>{' '}
-            <span className="transfer-token">{transfer.tokenName}</span>{' '}
+            <span className="transfer-token">{transfer.tokenName} ({transfer.tokenSymbol})</span>{' '}
             from <span className="transfer-address">{truncateAddress(transfer.from)}</span>{' '}
             to <span className="transfer-address">{truncateAddress(transfer.to)}</span>
           </li>
@@ -130,10 +90,9 @@ function App() {
     setResult({ type: 'loading' });
 
     try {
-      const response = await fetchTokenTransfers(trimmedHash);
+      const transactionResult = await fetchTokenTransfers(trimmedHash);
 
-      if (response) {
-        const transactionResult = createMockTransactionResult(trimmedHash);
+      if (transactionResult) {
         setResult({ type: 'success', result: transactionResult });
       } else {
         setResult({ type: 'error', message: 'Transaction not found on Ethereum mainnet' });

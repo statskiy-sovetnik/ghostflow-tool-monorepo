@@ -110,12 +110,10 @@ describeIntegration('App component (integration tests with network)', () => {
       { timeout: 15000 }
     );
 
-    // Check that transfer list is displayed with mock data
-    expect(screen.getByText('Token Transfers (3)')).toBeInTheDocument();
+    // Check that transfer list is displayed with real parsed transfers
+    // tx1 contains 4 ERC-20 Transfer events
+    expect(screen.getByText('Token Transfers (4)')).toBeInTheDocument();
     expect(screen.getByText('Transfer 1')).toBeInTheDocument();
-    expect(screen.getByText('ETH')).toBeInTheDocument();
-    expect(screen.getByText('WETH')).toBeInTheDocument();
-    expect(screen.getByText('USDC')).toBeInTheDocument();
   }, 20000);
 
   it('shows success message for second real transaction (tx2)', async () => {
@@ -135,8 +133,8 @@ describeIntegration('App component (integration tests with network)', () => {
       { timeout: 15000 }
     );
 
-    // Verify transfer list appears
-    expect(screen.getByText('Token Transfers (3)')).toBeInTheDocument();
+    // Verify transfer list appears - tx2 contains 11 ERC-20 Transfer events
+    expect(screen.getByText('Token Transfers (11)')).toBeInTheDocument();
   }, 20000);
 
   it('shows not found error for fake hash that does not exist on chain', async () => {
