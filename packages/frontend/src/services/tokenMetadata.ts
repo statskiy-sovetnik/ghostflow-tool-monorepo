@@ -58,6 +58,7 @@ export async function fetchTokenMetadataBatch(
           name: token.name || UNKNOWN_NAME,
           symbol: token.symbol || UNKNOWN_SYMBOL,
           decimals: token.decimals ? Number(token.decimals) : DEFAULT_DECIMALS,
+          logo: token.logo || null,
         };
 
         metadataCache.set(normalizedAddress, metadata);
@@ -74,6 +75,7 @@ export async function fetchTokenMetadataBatch(
           name: UNKNOWN_NAME,
           symbol: UNKNOWN_SYMBOL,
           decimals: DEFAULT_DECIMALS,
+          logo: null,
         };
         result.set(normalizedAddress, fallback);
       }
@@ -89,6 +91,7 @@ export async function fetchTokenMetadataBatch(
         name: UNKNOWN_NAME,
         symbol: UNKNOWN_SYMBOL,
         decimals: DEFAULT_DECIMALS,
+        logo: null,
       };
       result.set(normalizedAddress, fallback);
     }

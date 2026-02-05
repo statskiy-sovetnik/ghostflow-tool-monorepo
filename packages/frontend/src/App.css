@@ -191,6 +191,7 @@ body {
   line-height: 1.6;
   color: #333;
   white-space: nowrap;
+  overflow-x: auto;
 }
 
 .transfer-index {
@@ -210,6 +211,16 @@ body {
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.token-logo {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  vertical-align: middle;
 }
 
 .transfer-address {

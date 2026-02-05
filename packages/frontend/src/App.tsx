@@ -78,14 +78,22 @@ function TransferList({ transfers }: { transfers: TokenTransfer[] }) {
           const amount = formatTransferAmount(transfer.amount, transfer.decimals);
           const tokenName = truncateString(transfer.tokenName, 11);
           const tokenSymbol = truncateString(transfer.tokenSymbol, 8);
-          const token = `${tokenName} (${tokenSymbol})`;
+
+          const tokenDisplay = (
+            <span className="transfer-token">
+              {transfer.tokenLogo && (
+                <img src={transfer.tokenLogo} alt="" className="token-logo" />
+              )}
+              {tokenName} ({tokenSymbol})
+            </span>
+          );
 
           if (isMint(transfer)) {
             return (
               <li key={`${transfer.from}-${transfer.to}-${index}`} className="transfer-item">
                 <span className="transfer-index">Mint</span>{' '}
                 of <span className="transfer-amount">{amount}</span>{' '}
-                <span className="transfer-token">{token}</span>{' '}
+                {tokenDisplay}{' '}
                 to <span className="transfer-address">{truncateAddress(transfer.to)}</span>
               </li>
             );
@@ -96,7 +104,7 @@ function TransferList({ transfers }: { transfers: TokenTransfer[] }) {
               <li key={`${transfer.from}-${transfer.to}-${index}`} className="transfer-item">
                 <span className="transfer-index">Burn</span>{' '}
                 of <span className="transfer-amount">{amount}</span>{' '}
-                <span className="transfer-token">{token}</span>{' '}
+                {tokenDisplay}{' '}
                 from <span className="transfer-address">{truncateAddress(transfer.from)}</span>
               </li>
             );
@@ -106,7 +114,7 @@ function TransferList({ transfers }: { transfers: TokenTransfer[] }) {
             <li key={`${transfer.from}-${transfer.to}-${index}`} className="transfer-item">
               <span className="transfer-index">Transfer</span>{' '}
               of <span className="transfer-amount">{amount}</span>{' '}
-              <span className="transfer-token">{token}</span>{' '}
+              {tokenDisplay}{' '}
               from <span className="transfer-address">{truncateAddress(transfer.from)}</span>{' '}
               to <span className="transfer-address">{truncateAddress(transfer.to)}</span>
             </li>

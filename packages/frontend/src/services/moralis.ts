@@ -68,6 +68,7 @@ export async function fetchTokenTransfers(
       tokenAddress: raw.tokenAddress,
       tokenName: metadata.name,
       tokenSymbol: metadata.symbol,
+      tokenLogo: metadata.logo,
       amount: raw.value,
       decimals: metadata.decimals,
     };

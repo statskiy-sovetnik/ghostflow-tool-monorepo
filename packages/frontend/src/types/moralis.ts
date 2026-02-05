@@ -38,6 +38,7 @@ export interface TokenTransfer {
   tokenAddress: string;
   tokenName: string;
   tokenSymbol: string;
+  tokenLogo: string | null;
   amount: string;
   decimals: number;
 }
@@ -52,4 +53,5 @@ export interface TokenMetadata {
   name: string;
   symbol: string;
   decimals: number;
+  logo: string | null;
 }

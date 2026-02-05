@@ -1,12 +1,36 @@
 import type { MoralisTransactionLog } from '../types/moralis';
 
 export const ERC20_TRANSFER_SIGNATURE = 'Transfer(address,address,uint256)';
+export const ERC20_TRANSFER_TOPIC0 = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 
 export interface RawERC20Transfer {
   from: string;
   to: string;
   value: string;
   tokenAddress: string;
+}
+
+function extractAddressFromTopic(topic: string): string {
+  return '0x' + topic.slice(-40);
+}
+
+function extractValueFromData(data: string): string {
+  if (!data || data === '0x') return '0';
+  return BigInt(data).toString();
+}
+
+function parseTransferFromRawLog(log: MoralisTransactionLog): RawERC20Transfer | null {
+  if (log.topic0 !== ERC20_TRANSFER_TOPIC0) return null;
+  if (!log.topic1 || !log.topic2 || !log.data) {
+    console.warn('Raw Transfer log missing required fields:', { address: log.address });
+    return null;
+  }
+  return {
+    from: extractAddressFromTopic(log.topic1),
+    to: extractAddressFromTopic(log.topic2),
+    value: extractValueFromData(log.data),
+    tokenAddress: log.address,
+  };
 }
 
 /**
@@ -19,6 +43,11 @@ export function parseERC20Transfers(logs: MoralisTransactionLog[]): RawERC20Tran
 
   for (const log of logs) {
     if (!log.decoded_event) {
+      // Try fallback to raw log parsing
+      const rawTransfer = parseTransferFromRawLog(log);
+      if (rawTransfer) {
+        transfers.push(rawTransfer);
+      }
       continue;
     }
 
@@ -34,12 +63,11 @@ export function parseERC20Transfers(logs: MoralisTransactionLog[]): RawERC20Tran
                ?? params.find((p) => p.name === 'amount')?.value;
 
     if (!from || !to || !value) {
-      console.warn('ERC-20 Transfer log missing required params:', {
-        from,
-        to,
-        value,
-        address: log.address,
-      });
+      // decoded_event exists but params are missing - try raw log parsing as fallback
+      const rawTransfer = parseTransferFromRawLog(log);
+      if (rawTransfer) {
+        transfers.push(rawTransfer);
+      }
       continue;
     }
 
