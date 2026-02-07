@@ -46,6 +46,28 @@ export interface TokenTransfer {
 export interface TransactionResult {
   txHash: string;
   transfers: TokenTransfer[];
+  operations: DeFiOperation[];
+}
+
+export interface DecodedCall {
+  label: string;
+  signature: string;
+  params: DecodedEventParam[];
+}
+
+export interface DeFiOperation {
+  type: string;
+}
+
+export interface AaveSupplyOperation extends DeFiOperation {
+  type: 'aave-supply';
+  asset: string;
+  assetName: string;
+  assetSymbol: string;
+  assetLogo: string | null;
+  amount: string;
+  decimals: number;
+  onBehalfOf: string | null;
 }
 
 export interface TokenMetadata {

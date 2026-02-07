@@ -1,6 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { fetchTokenTransfers } from './services/moralis';
-import type { TokenTransfer, TransactionResult } from './types/moralis';
+import type { TokenTransfer, TransactionResult, AaveSupplyOperation, DeFiOperation } from './types/moralis';
 
 type ResultState =
   | { type: 'idle' }
@@ -125,6 +125,50 @@ function TransferList({ transfers }: { transfers: TokenTransfer[] }) {
   );
 }
 
+function AaveSupplyItem({ operation }: { operation: AaveSupplyOperation }) {
+  const amount = formatTransferAmount(operation.amount, operation.decimals);
+  const tokenName = truncateString(operation.assetName, 11);
+  const tokenSymbol = truncateString(operation.assetSymbol, 8);
+
+  return (
+    <li className="operation-item aave-supply">
+      <span className="operation-type">Supply</span>{' '}
+      <span className="transfer-amount">{amount}</span>{' '}
+      <span className="transfer-token">
+        {operation.assetLogo && (
+          <img src={operation.assetLogo} alt="" className="token-logo" />
+        )}
+        {tokenName} ({tokenSymbol})
+      </span>{' '}
+      to <span className="protocol-name">Aave V3</span>
+      {operation.onBehalfOf && (
+        <>
+          {' '}on behalf of{' '}
+          <span className="transfer-address">{truncateAddress(operation.onBehalfOf)}</span>
+        </>
+      )}
+    </li>
+  );
+}
+
+function OperationsList({ operations }: { operations: DeFiOperation[] }) {
+  if (operations.length === 0) return null;
+
+  return (
+    <div className="operations">
+      <h3 className="operations-title">DeFi Operations ({operations.length})</h3>
+      <ul className="operations-list">
+        {operations.map((op, index) => {
+          if (op.type === 'aave-supply') {
+            return <AaveSupplyItem key={index} operation={op as AaveSupplyOperation} />;
+          }
+          return null;
+        })}
+      </ul>
+    </div>
+  );
+}
+
 function App() {
   const [txHash, setTxHash] = useState('');
   const [result, setResult] = useState<ResultState>({ type: 'idle' });
@@ -166,6 +210,7 @@ function App() {
         </header>
 
         <form onSubmit={handleSubmit} className="form">
+          <label className="input-label">Enter transaction hash</label>
           <input
             type="text"
             value={txHash}
@@ -193,6 +238,7 @@ function App() {
               <span className="icon">✓</span>
               <span className="message">Transaction found on Ethereum mainnet</span>
             </div>
+            <OperationsList operations={result.result.operations} />
             <TransferList transfers={result.result.transfers} />
           </>
         )}
