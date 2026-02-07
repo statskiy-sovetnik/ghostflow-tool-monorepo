@@ -1,6 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { fetchTokenTransfers } from './services/moralis';
-import type { TokenTransfer, TransactionResult, AaveSupplyOperation, DeFiOperation } from './types/moralis';
+import type { TokenTransfer, TransactionResult, AaveSupplyOperation, FlowItem } from './types/moralis';
 
 type ResultState =
   | { type: 'idle' }
@@ -61,67 +61,50 @@ export function validateTxHash(hash: string): string | null {
   return null;
 }
 
-function TransferList({ transfers }: { transfers: TokenTransfer[] }) {
-  if (transfers.length === 0) {
+function TransferItem({ transfer }: { transfer: TokenTransfer }) {
+  const amount = formatTransferAmount(transfer.amount, transfer.decimals);
+  const tokenName = truncateString(transfer.tokenName, 11);
+  const tokenSymbol = truncateString(transfer.tokenSymbol, 8);
+
+  const tokenDisplay = (
+    <span className="transfer-token">
+      {transfer.tokenLogo && (
+        <img src={transfer.tokenLogo} alt="" className="token-logo" />
+      )}
+      {tokenName} ({tokenSymbol})
+    </span>
+  );
+
+  if (isMint(transfer)) {
     return (
-      <div className="transfers-empty">
-        No token transfers found in this transaction.
-      </div>
+      <li className="transfer-item">
+        <span className="transfer-index">Mint</span>{' '}
+        of <span className="transfer-amount">{amount}</span>{' '}
+        {tokenDisplay}{' '}
+        to <span className="transfer-address">{truncateAddress(transfer.to)}</span>
+      </li>
+    );
+  }
+
+  if (isBurn(transfer)) {
+    return (
+      <li className="transfer-item">
+        <span className="transfer-index">Burn</span>{' '}
+        of <span className="transfer-amount">{amount}</span>{' '}
+        {tokenDisplay}{' '}
+        from <span className="transfer-address">{truncateAddress(transfer.from)}</span>
+      </li>
     );
   }
 
   return (
-    <div className="transfers">
-      <h3 className="transfers-title">Token Transfers ({transfers.length})</h3>
-      <ul className="transfers-list">
-        {transfers.map((transfer, index) => {
-          const amount = formatTransferAmount(transfer.amount, transfer.decimals);
-          const tokenName = truncateString(transfer.tokenName, 11);
-          const tokenSymbol = truncateString(transfer.tokenSymbol, 8);
-
-          const tokenDisplay = (
-            <span className="transfer-token">
-              {transfer.tokenLogo && (
-                <img src={transfer.tokenLogo} alt="" className="token-logo" />
-              )}
-              {tokenName} ({tokenSymbol})
-            </span>
-          );
-
-          if (isMint(transfer)) {
-            return (
-              <li key={`${transfer.from}-${transfer.to}-${index}`} className="transfer-item">
-                <span className="transfer-index">Mint</span>{' '}
-                of <span className="transfer-amount">{amount}</span>{' '}
-                {tokenDisplay}{' '}
-                to <span className="transfer-address">{truncateAddress(transfer.to)}</span>
-              </li>
-            );
-          }
-
-          if (isBurn(transfer)) {
-            return (
-              <li key={`${transfer.from}-${transfer.to}-${index}`} className="transfer-item">
-                <span className="transfer-index">Burn</span>{' '}
-                of <span className="transfer-amount">{amount}</span>{' '}
-                {tokenDisplay}{' '}
-                from <span className="transfer-address">{truncateAddress(transfer.from)}</span>
-              </li>
-            );
-          }
-
-          return (
-            <li key={`${transfer.from}-${transfer.to}-${index}`} className="transfer-item">
-              <span className="transfer-index">Transfer</span>{' '}
-              of <span className="transfer-amount">{amount}</span>{' '}
-              {tokenDisplay}{' '}
-              from <span className="transfer-address">{truncateAddress(transfer.from)}</span>{' '}
-              to <span className="transfer-address">{truncateAddress(transfer.to)}</span>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
+    <li className="transfer-item">
+      <span className="transfer-index">Transfer</span>{' '}
+      of <span className="transfer-amount">{amount}</span>{' '}
+      {tokenDisplay}{' '}
+      from <span className="transfer-address">{truncateAddress(transfer.from)}</span>{' '}
+      to <span className="transfer-address">{truncateAddress(transfer.to)}</span>
+    </li>
   );
 }
 
@@ -151,18 +134,27 @@ function AaveSupplyItem({ operation }: { operation: AaveSupplyOperation }) {
   );
 }
 
-function OperationsList({ operations }: { operations: DeFiOperation[] }) {
-  if (operations.length === 0) return null;
+function TokenFlow({ flow }: { flow: FlowItem[] }) {
+  if (flow.length === 0) {
+    return (
+      <div className="transfers-empty">
+        No token transfers found in this transaction.
+      </div>
+    );
+  }
 
   return (
-    <div className="operations">
-      <h3 className="operations-title">DeFi Operations ({operations.length})</h3>
-      <ul className="operations-list">
-        {operations.map((op, index) => {
-          if (op.type === 'aave-supply') {
-            return <AaveSupplyItem key={index} operation={op as AaveSupplyOperation} />;
+    <div className="token-flow">
+      <h3 className="token-flow-title">Token Flow ({flow.length})</h3>
+      <ul className="token-flow-list">
+        {flow.map((item, index) => {
+          if (item.kind === 'operation') {
+            if (item.data.type === 'aave-supply') {
+              return <AaveSupplyItem key={index} operation={item.data as AaveSupplyOperation} />;
+            }
+            return null;
           }
-          return null;
+          return <TransferItem key={index} transfer={item.data} />;
         })}
       </ul>
     </div>
@@ -238,8 +230,7 @@ function App() {
               <span className="icon">✓</span>
               <span className="message">Transaction found on Ethereum mainnet</span>
             </div>
-            <OperationsList operations={result.result.operations} />
-            <TransferList transfers={result.result.transfers} />
+            <TokenFlow flow={result.result.flow} />
           </>
         )}
 

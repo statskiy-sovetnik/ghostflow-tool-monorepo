@@ -9,6 +9,7 @@ export interface RawERC20Transfer {
   to: string;
   value: string;
   tokenAddress: string;
+  logIndex: number;
 }
 
 function extractValueFromData(data: string): string {
@@ -27,6 +28,7 @@ function parseTransferFromRawLog(log: MoralisTransactionLog): RawERC20Transfer |
     to: extractAddressFromTopic(log.topic2),
     value: extractValueFromData(log.data),
     tokenAddress: log.address,
+    logIndex: parseInt(log.log_index),
   };
 }
 
@@ -73,6 +75,7 @@ export function parseERC20Transfers(logs: MoralisTransactionLog[]): RawERC20Tran
       to,
       value,
       tokenAddress: log.address,
+      logIndex: parseInt(log.log_index),
     });
   }
 

@@ -63,6 +63,7 @@ export function detectAaveSupplies(
     results.push({
       operation: {
         type: 'aave-supply',
+        logIndex: parseInt(log.log_index),
         asset: reserve,
         assetName: metadataTransfer?.tokenName ?? 'Unknown',
         assetSymbol: metadataTransfer?.tokenSymbol ?? '???',

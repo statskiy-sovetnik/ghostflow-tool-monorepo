@@ -41,12 +41,16 @@ export interface TokenTransfer {
   tokenLogo: string | null;
   amount: string;
   decimals: number;
+  logIndex: number;
 }
+
+export type FlowItem =
+  | { kind: 'transfer'; data: TokenTransfer }
+  | { kind: 'operation'; data: DeFiOperation };
 
 export interface TransactionResult {
   txHash: string;
-  transfers: TokenTransfer[];
-  operations: DeFiOperation[];
+  flow: FlowItem[];
 }
 
 export interface DecodedCall {
@@ -57,6 +61,7 @@ export interface DecodedCall {
 
 export interface DeFiOperation {
   type: string;
+  logIndex: number;
 }
 
 export interface AaveSupplyOperation extends DeFiOperation {

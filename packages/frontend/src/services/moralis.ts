@@ -1,5 +1,5 @@
 import Moralis from 'moralis';
-import type { MoralisTransactionLog, TransactionResult, TokenTransfer, DeFiOperation } from '../types/moralis';
+import type { MoralisTransactionLog, TransactionResult, TokenTransfer, FlowItem } from '../types/moralis';
 import { parseERC20Transfers } from '../parsers/erc20TransferParser';
 import { detectAaveSupplies } from '../parsers/aaveV3Parser';
 import { fetchTokenMetadataBatch } from './tokenMetadata';
@@ -25,7 +25,7 @@ export async function initMoralis(): Promise<void> {
  * Fetches and parses ERC-20 token transfers from a transaction.
  *
  * @param transactionHash The transaction hash to analyze
- * @returns TransactionResult with enriched transfers, or null if transaction not found
+ * @returns TransactionResult with unified flow items, or null if transaction not found
  */
 export async function fetchTokenTransfers(
   transactionHash: string
@@ -50,11 +50,10 @@ export async function fetchTokenTransfers(
   if (rawTransfers.length === 0) {
     return {
       txHash: transactionHash,
-      transfers: [],
-      operations: [],
+      flow: [],
     };
   }
-  
+
   // Get unique token addresses
   const uniqueAddresses = [...new Set(rawTransfers.map((t) => t.tokenAddress))];
 
@@ -73,27 +72,33 @@ export async function fetchTokenTransfers(
       tokenLogo: metadata.logo,
       amount: raw.value,
       decimals: metadata.decimals,
+      logIndex: raw.logIndex,
     };
   });
 
   // Detect DeFi operations
-  const operations: DeFiOperation[] = [];
   const indicesToRemove = new Set<number>();
 
   const aaveSupplies = detectAaveSupplies(logs, transfers);
+  const operationItems: FlowItem[] = [];
   for (const supply of aaveSupplies) {
-    operations.push(supply.operation);
+    operationItems.push({ kind: 'operation', data: supply.operation });
     for (const idx of supply.transferIndicesToRemove) {
       indicesToRemove.add(idx);
     }
   }
 
-  const filteredTransfers = transfers.filter((_, i) => !indicesToRemove.has(i));
+  const transferItems: FlowItem[] = transfers
+    .filter((_, i) => !indicesToRemove.has(i))
+    .map((t) => ({ kind: 'transfer' as const, data: t }));
+
+  const flow: FlowItem[] = [...transferItems, ...operationItems].sort(
+    (a, b) => a.data.logIndex - b.data.logIndex,
+  );
 
   return {
     txHash: transactionHash,
-    transfers: filteredTransfers,
-    operations,
+    flow,
   };
 }
 

@@ -129,7 +129,7 @@ describeIntegration('App component (integration tests with network)', () => {
 
     // Check that transfer list is displayed with real parsed transfers
     // tx1 contains 4 ERC-20 Transfer events
-    expect(screen.getByText('Token Transfers (4)')).toBeInTheDocument();
+    expect(screen.getByText('Token Flow (4)')).toBeInTheDocument();
     expect(screen.getAllByText('Transfer').length).toBeGreaterThan(0);
   }, 20000);
 
@@ -151,7 +151,7 @@ describeIntegration('App component (integration tests with network)', () => {
     );
 
     // Verify transfer list appears - tx2 contains 11 ERC-20 Transfer events
-    expect(screen.getByText('Token Transfers (11)')).toBeInTheDocument();
+    expect(screen.getByText('Token Flow (11)')).toBeInTheDocument();
   }, 20000);
 
   it('shows not found error for fake hash that does not exist on chain', async () => {
@@ -172,6 +172,6 @@ describeIntegration('App component (integration tests with network)', () => {
     );
 
     // Verify no transfer list appears on error
-    expect(screen.queryByText('Token Transfers')).not.toBeInTheDocument();
+    expect(screen.queryByText('Token Flow')).not.toBeInTheDocument();
   }, 20000);
 });

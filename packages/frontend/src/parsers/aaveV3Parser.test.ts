@@ -48,6 +48,7 @@ function createTransfer(overrides: Partial<TokenTransfer> = {}): TokenTransfer {
     tokenLogo: 'https://logo.example.com/usdt.png',
     amount: '1000000',
     decimals: 6,
+    logIndex: 0,
     ...overrides,
   };
 }
@@ -74,6 +75,7 @@ describe('detectAaveSupplies', () => {
     expect(results).toHaveLength(1);
     const r = results[0];
     expect(r.operation.type).toBe('aave-supply');
+    expect(r.operation.logIndex).toBe(0);
     expect(r.operation.asset).toBe(ASSET_ADDRESS);
     expect(r.operation.assetName).toBe('Tether USD');
     expect(r.operation.assetSymbol).toBe('USDT');

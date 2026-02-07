@@ -155,8 +155,8 @@ body {
   }
 }
 
-/* Transfer List */
-.transfers {
+/* Token Flow */
+.token-flow {
   margin-top: 24px;
   padding: 20px;
   background: #fafafa;
@@ -165,14 +165,14 @@ body {
   overflow-x: auto;
 }
 
-.transfers-title {
+.token-flow-title {
   font-size: 1rem;
   font-weight: 600;
   color: #1a1a1a;
   margin-bottom: 16px;
 }
 
-.transfers-list {
+.token-flow-list {
   list-style: none;
   display: flex;
   flex-direction: column;
@@ -227,30 +227,6 @@ body {
   height: 16px;
   border-radius: 50%;
   vertical-align: middle;
-}
-
-/* Operations List */
-.operations {
-  margin-top: 24px;
-  padding: 20px;
-  background: #eef5ff;
-  border-radius: 8px;
-  border: 1px solid #c8ddf5;
-  overflow-x: auto;
-}
-
-.operations-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin-bottom: 16px;
-}
-
-.operations-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
 }
 
 .operation-item {

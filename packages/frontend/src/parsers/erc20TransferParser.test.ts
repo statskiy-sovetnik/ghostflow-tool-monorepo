@@ -52,6 +52,7 @@ describe('parseERC20Transfers', () => {
       to: '0xReceiver1',
       value: '1000000',
       tokenAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+      logIndex: 115,
     });
   });
 
@@ -316,6 +317,7 @@ describe('parseERC20Transfers', () => {
         to: '0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45',
         value: '1000000000000000000',
         tokenAddress: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+        logIndex: 115,
       });
     });
 
@@ -525,6 +527,7 @@ describe('parseERC20Transfers', () => {
         to: '0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45',
         value: '1000000000000000000',
         tokenAddress: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+        logIndex: 115,
       });
     });
 
