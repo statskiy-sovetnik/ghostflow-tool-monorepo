@@ -26,7 +26,7 @@ GhostFlow groups and labels transfers by their semantic meaning, turning raw dat
 
 ## Context7 library IDs
 - Vitest: /antfu/vitest
-- Ethers.js: 
+- Ethers.js: ...
 
 ## Tech Stack
 
@@ -47,7 +47,7 @@ GhostFlow groups and labels transfers by their semantic meaning, turning raw dat
 ## Development Rules
 
 - **Package Manager**: pnpm (required)
-- Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
+- Always use Context7 MCP when I need library/API documentation (except for Moralis!), code generation, setup or configuration steps without me having to explicitly ask.
 - Create maintainable code that follows the best practices and design patterns, including creational (singleton, factory, abstract factory, builders), behavioural and structural patterns. But do not over-engineer! Keep a good balance between simplicity, readability and maintainability
 
 # Protocol integration

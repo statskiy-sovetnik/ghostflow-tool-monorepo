@@ -1,4 +1,5 @@
 import type { MoralisTransactionLog } from '../types/moralis';
+import { extractAddressFromTopic } from './utils';
 
 export const ERC20_TRANSFER_SIGNATURE = 'Transfer(address,address,uint256)';
 export const ERC20_TRANSFER_TOPIC0 = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
@@ -8,10 +9,6 @@ export interface RawERC20Transfer {
   to: string;
   value: string;
   tokenAddress: string;
-}
-
-function extractAddressFromTopic(topic: string): string {
-  return '0x' + topic.slice(-40);
 }
 
 function extractValueFromData(data: string): string {

@@ -1,7 +1,7 @@
 import Moralis from 'moralis';
-import type { MoralisTransactionLog, TransactionResult, TokenTransfer, DecodedCall, DeFiOperation } from '../types/moralis';
+import type { MoralisTransactionLog, TransactionResult, TokenTransfer, DeFiOperation } from '../types/moralis';
 import { parseERC20Transfers } from '../parsers/erc20TransferParser';
-import { detectAaveSupply } from '../parsers/aaveV3Parser';
+import { detectAaveSupplies } from '../parsers/aaveV3Parser';
 import { fetchTokenMetadataBatch } from './tokenMetadata';
 
 let initialized = false;
@@ -80,11 +80,10 @@ export async function fetchTokenTransfers(
   const operations: DeFiOperation[] = [];
   const indicesToRemove = new Set<number>();
 
-  const decodedCall = (json.decoded_call as DecodedCall | null) ?? null;
-  const aaveSupply = detectAaveSupply(decodedCall, json.to_address, json.from_address, transfers);
-  if (aaveSupply) {
-    operations.push(aaveSupply.operation);
-    for (const idx of aaveSupply.transferIndicesToRemove) {
+  const aaveSupplies = detectAaveSupplies(logs, transfers);
+  for (const supply of aaveSupplies) {
+    operations.push(supply.operation);
+    for (const idx of supply.transferIndicesToRemove) {
       indicesToRemove.add(idx);
     }
   }
