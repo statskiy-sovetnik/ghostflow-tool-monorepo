@@ -7,6 +7,13 @@ export function extractAddressFromTopic(topic: string): string {
   return '0x' + topic.slice(-40);
 }
 
+/** Extracts a lowercase checksumless address from a specific 32-byte word in ABI-encoded event data. */
+export function extractAddressFromData(data: string, wordIndex: number): string {
+  const start = 2 + wordIndex * 64;
+  const word = data.slice(start, start + 64);
+  return '0x' + word.slice(-40);
+}
+
 /** Decodes a uint256 from a specific 32-byte word in ABI-encoded event data. */
 export function decodeUint256FromData(data: string, wordIndex: number): string {
   // Each word is 64 hex chars (32 bytes). Skip '0x' prefix.

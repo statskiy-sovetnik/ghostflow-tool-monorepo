@@ -1,6 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { fetchTokenTransfers } from './services/moralis';
-import type { TokenTransfer, TransactionResult, AaveSupplyOperation, NativeTransfer, FlowItem } from './types/moralis';
+import type { TokenTransfer, TransactionResult, AaveSupplyOperation, AaveBorrowOperation, AaveRepayOperation, NativeTransfer, FlowItem } from './types/moralis';
 
 type ResultState =
   | { type: 'idle' }
@@ -134,6 +134,52 @@ function AaveSupplyItem({ operation }: { operation: AaveSupplyOperation }) {
   );
 }
 
+function AaveBorrowItem({ operation }: { operation: AaveBorrowOperation }) {
+  const amount = formatTransferAmount(operation.amount, operation.decimals);
+  const tokenName = truncateString(operation.assetName, 11);
+  const tokenSymbol = truncateString(operation.assetSymbol, 8);
+
+  return (
+    <li className="operation-item aave-borrow">
+      <span className="operation-type aave-borrow-badge">Borrow</span>{' '}
+      <span className="transfer-amount">{amount}</span>{' '}
+      <span className="transfer-token">
+        {operation.assetLogo && (
+          <img src={operation.assetLogo} alt="" className="token-logo" />
+        )}
+        {tokenName} ({tokenSymbol})
+      </span>{' '}
+      from <span className="protocol-name">Aave V3</span>
+    </li>
+  );
+}
+
+function AaveRepayItem({ operation }: { operation: AaveRepayOperation }) {
+  const amount = formatTransferAmount(operation.amount, operation.decimals);
+  const tokenName = truncateString(operation.assetName, 11);
+  const tokenSymbol = truncateString(operation.assetSymbol, 8);
+
+  return (
+    <li className="operation-item aave-repay">
+      <span className="operation-type aave-repay-badge">Repay</span>{' '}
+      <span className="transfer-amount">{amount}</span>{' '}
+      <span className="transfer-token">
+        {operation.assetLogo && (
+          <img src={operation.assetLogo} alt="" className="token-logo" />
+        )}
+        {tokenName} ({tokenSymbol})
+      </span>{' '}
+      to <span className="protocol-name">Aave V3</span>
+      {operation.onBehalfOf && (
+        <>
+          {' '}on behalf of{' '}
+          <span className="transfer-address">{truncateAddress(operation.onBehalfOf)}</span>
+        </>
+      )}
+    </li>
+  );
+}
+
 function NativeTransferItem({ transfer }: { transfer: NativeTransfer }) {
   const amount = formatTransferAmount(transfer.amount, 18);
 
@@ -165,6 +211,12 @@ function TokenFlow({ flow }: { flow: FlowItem[] }) {
           if (item.kind === 'operation') {
             if (item.data.type === 'aave-supply') {
               return <AaveSupplyItem key={index} operation={item.data as AaveSupplyOperation} />;
+            }
+            if (item.data.type === 'aave-borrow') {
+              return <AaveBorrowItem key={index} operation={item.data as AaveBorrowOperation} />;
+            }
+            if (item.data.type === 'aave-repay') {
+              return <AaveRepayItem key={index} operation={item.data as AaveRepayOperation} />;
             }
             return null;
           }

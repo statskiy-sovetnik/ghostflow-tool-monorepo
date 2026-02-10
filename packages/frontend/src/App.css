@@ -245,6 +245,14 @@ body {
   border-left: 4px solid #4a90d9;
 }
 
+.operation-item.aave-borrow {
+  border-left: 4px solid #e65100;
+}
+
+.operation-item.aave-repay {
+  border-left: 4px solid #2e7d32;
+}
+
 .operation-type {
   font-weight: 600;
   color: white;
@@ -252,6 +260,14 @@ body {
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 0.85rem;
+}
+
+.operation-type.aave-borrow-badge {
+  background: #e65100;
+}
+
+.operation-type.aave-repay-badge {
+  background: #2e7d32;
 }
 
 .protocol-name {

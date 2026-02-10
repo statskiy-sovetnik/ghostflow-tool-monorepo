@@ -76,6 +76,29 @@ export interface AaveSupplyOperation extends DeFiOperation {
   onBehalfOf: string | null;
 }
 
+export interface AaveBorrowOperation extends DeFiOperation {
+  type: 'aave-borrow';
+  asset: string;
+  assetName: string;
+  assetSymbol: string;
+  assetLogo: string | null;
+  amount: string;
+  decimals: number;
+  borrower: string;
+}
+
+export interface AaveRepayOperation extends DeFiOperation {
+  type: 'aave-repay';
+  asset: string;
+  assetName: string;
+  assetSymbol: string;
+  assetLogo: string | null;
+  amount: string;
+  decimals: number;
+  repayer: string;
+  onBehalfOf: string | null;
+}
+
 export interface TokenMetadata {
   address: string;
   name: string;
