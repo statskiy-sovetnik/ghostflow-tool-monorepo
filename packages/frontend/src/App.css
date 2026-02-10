@@ -294,6 +294,12 @@ body {
   background: #f0f0f0;
   padding: 2px 6px;
   border-radius: 4px;
+  text-decoration: none;
+}
+
+.transfer-address:hover {
+  color: #1a73e8;
+  text-decoration: underline;
 }
 
 /* Native ETH Transfer */

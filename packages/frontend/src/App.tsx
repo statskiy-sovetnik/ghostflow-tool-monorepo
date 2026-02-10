@@ -41,9 +41,15 @@ export function truncateString(str: string, maxLength: number): string {
 function AddressLabel({ address }: { address: string }) {
   const name = useContractName(address);
   return (
-    <span className="transfer-address" title={address}>
+    <a
+      className="transfer-address"
+      href={`https://etherscan.io/address/${address}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={address}
+    >
       {name ? truncateString(name, 18) : truncateAddress(address)}
-    </span>
+    </a>
   );
 }
 
