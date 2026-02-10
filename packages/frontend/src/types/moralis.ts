@@ -100,6 +100,18 @@ export interface AaveRepayOperation extends DeFiOperation {
   onBehalfOf: string | null;
 }
 
+export interface AaveWithdrawOperation extends DeFiOperation {
+  type: 'aave-withdraw';
+  asset: string;
+  assetName: string;
+  assetSymbol: string;
+  assetLogo: string | null;
+  amount: string;
+  decimals: number;
+  withdrawer: string;
+  to: string | null;
+}
+
 export interface TokenMetadata {
   address: string;
   name: string;

@@ -1,10 +1,11 @@
-import type { MoralisTransactionLog, TokenTransfer, AaveSupplyOperation, AaveBorrowOperation, AaveRepayOperation } from '../types/moralis';
+import type { MoralisTransactionLog, TokenTransfer, AaveSupplyOperation, AaveBorrowOperation, AaveRepayOperation, AaveWithdrawOperation } from '../types/moralis';
 import { extractAddressFromTopic, extractAddressFromData, decodeUint256FromData } from './utils';
 
 export const AAVE_V3_POOL_ADDRESS = '0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2';
 export const AAVE_V3_SUPPLY_TOPIC0 = '0x2b627736bca15cd5381dcf80b0bf11fd197d01a037c52b927a881a10fb73ba61';
 export const AAVE_V3_BORROW_TOPIC0 = '0xb3d084820fb1a9decffb176436bd02558d15fac9b0ddfed8c465bc7359d7dce0';
 export const AAVE_V3_REPAY_TOPIC0 = '0xa534c8dbe71f871f9f3530e97a74601fea17b426cae02e1c5aee42c96c784051';
+export const AAVE_V3_WITHDRAW_TOPIC0 = '0x3115d1449a7b732c986cba18244e897a450f61e1bb8d589cd2e69e6c8924f9f7';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
@@ -20,6 +21,11 @@ export interface AaveBorrowResult {
 
 export interface AaveRepayResult {
   operation: AaveRepayOperation;
+  transferIndicesToRemove: number[];
+}
+
+export interface AaveWithdrawResult {
+  operation: AaveWithdrawOperation;
   transferIndicesToRemove: number[];
 }
 
@@ -218,6 +224,73 @@ export function detectAaveRepays(
         decimals: metadataTransfer?.decimals ?? 18,
         repayer: repayerRaw,
         onBehalfOf,
+      },
+      transferIndicesToRemove: indicesToRemove,
+    });
+  }
+
+  return results;
+}
+
+/**
+ * Detects Aave V3 Withdraw operations.
+ *
+ * Withdraw event layout:
+ *   topic1: reserve, topic2: user (whose aTokens are burned), topic3: to (recipient)
+ *   data: [amount (uint256)]
+ */
+export function detectAaveWithdraws(
+  logs: MoralisTransactionLog[],
+  transfers: TokenTransfer[],
+): AaveWithdrawResult[] {
+  const results: AaveWithdrawResult[] = [];
+
+  for (const log of logs) {
+    if (log.address.toLowerCase() !== AAVE_V3_POOL_ADDRESS) continue;
+    if (log.topic0 !== AAVE_V3_WITHDRAW_TOPIC0) continue;
+    if (!log.topic1 || !log.topic2 || !log.topic3) continue;
+
+    const reserve = extractAddressFromTopic(log.topic1);
+    const userRaw = extractAddressFromTopic(log.topic2);
+    const toRaw = extractAddressFromTopic(log.topic3);
+    const amount = decodeUint256FromData(log.data, 0);
+
+    const reserveLower = reserve.toLowerCase();
+    const userLower = userRaw.toLowerCase();
+    const toLower = toRaw.toLowerCase();
+    const recipient = toLower === userLower ? userLower : toLower;
+
+    const indicesToRemove: number[] = [];
+
+    // Find aToken burn: from = user, to = zero address
+    const burnIdx = transfers.findIndex(
+      (t) => t.from.toLowerCase() === userLower && t.to.toLowerCase() === ZERO_ADDRESS,
+    );
+    if (burnIdx !== -1) indicesToRemove.push(burnIdx);
+
+    // Find underlying token transfer: tokenAddress = reserve, to = recipient
+    const underlyingIdx = transfers.findIndex(
+      (t) => t.tokenAddress.toLowerCase() === reserveLower && t.to.toLowerCase() === recipient,
+    );
+    if (underlyingIdx !== -1) indicesToRemove.push(underlyingIdx);
+
+    const metadataTransfer = underlyingIdx !== -1 ? transfers[underlyingIdx] : null;
+
+    // Only show `to` when recipient differs from withdrawer
+    const to = toLower !== userLower ? toRaw : null;
+
+    results.push({
+      operation: {
+        type: 'aave-withdraw',
+        logIndex: parseInt(log.log_index),
+        asset: reserve,
+        assetName: metadataTransfer?.tokenName ?? 'Unknown',
+        assetSymbol: metadataTransfer?.tokenSymbol ?? '???',
+        assetLogo: metadataTransfer?.tokenLogo ?? null,
+        amount: metadataTransfer?.amount ?? amount,
+        decimals: metadataTransfer?.decimals ?? 18,
+        withdrawer: userRaw,
+        to,
       },
       transferIndicesToRemove: indicesToRemove,
     });

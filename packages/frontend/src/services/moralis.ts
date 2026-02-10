@@ -1,7 +1,7 @@
 import Moralis from 'moralis';
 import type { MoralisTransactionLog, MoralisInternalTransaction, TransactionResult, TokenTransfer, FlowItem } from '../types/moralis';
 import { parseERC20Transfers } from '../parsers/erc20TransferParser';
-import { detectAaveSupplies, detectAaveBorrows, detectAaveRepays } from '../parsers/aaveV3Parser';
+import { detectAaveSupplies, detectAaveBorrows, detectAaveRepays, detectAaveWithdraws } from '../parsers/aaveV3Parser';
 import { parseNativeTransfers } from '../parsers/nativeTransferParser';
 import { fetchTokenMetadataBatch } from './tokenMetadata';
 
@@ -80,6 +80,7 @@ export async function fetchTokenTransfers(
     const aaveSupplies = detectAaveSupplies(logs, transfers);
     const aaveBorrows = detectAaveBorrows(logs, transfers);
     const aaveRepays = detectAaveRepays(logs, transfers);
+    const aaveWithdraws = detectAaveWithdraws(logs, transfers);
     const operationItems: FlowItem[] = [];
     for (const supply of aaveSupplies) {
       operationItems.push({ kind: 'operation', data: supply.operation });
@@ -96,6 +97,12 @@ export async function fetchTokenTransfers(
     for (const repay of aaveRepays) {
       operationItems.push({ kind: 'operation', data: repay.operation });
       for (const idx of repay.transferIndicesToRemove) {
+        indicesToRemove.add(idx);
+      }
+    }
+    for (const withdraw of aaveWithdraws) {
+      operationItems.push({ kind: 'operation', data: withdraw.operation });
+      for (const idx of withdraw.transferIndicesToRemove) {
         indicesToRemove.add(idx);
       }
     }

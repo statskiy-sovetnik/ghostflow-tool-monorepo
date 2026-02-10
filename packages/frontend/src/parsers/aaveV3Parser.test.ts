@@ -3,10 +3,12 @@ import {
   detectAaveSupplies,
   detectAaveBorrows,
   detectAaveRepays,
+  detectAaveWithdraws,
   AAVE_V3_POOL_ADDRESS,
   AAVE_V3_SUPPLY_TOPIC0,
   AAVE_V3_BORROW_TOPIC0,
   AAVE_V3_REPAY_TOPIC0,
+  AAVE_V3_WITHDRAW_TOPIC0,
 } from './aaveV3Parser';
 import type { MoralisTransactionLog, TokenTransfer } from '../types/moralis';
 
@@ -359,5 +361,132 @@ describe('detectAaveRepays', () => {
     ];
     const results = detectAaveRepays(logs, []);
     expect(results).toEqual([]);
+  });
+});
+
+// Withdraw data: [amount (uint256)]
+function createWithdrawLog(overrides: Partial<MoralisTransactionLog> = {}): MoralisTransactionLog {
+  const amount = encodeUint256(2000000n);
+  return {
+    address: AAVE_V3_POOL_ADDRESS,
+    topic0: AAVE_V3_WITHDRAW_TOPIC0,
+    topic1: padAddress(ASSET_ADDRESS),   // reserve
+    topic2: padAddress(USER_ADDRESS),    // user (withdrawer)
+    topic3: padAddress(USER_ADDRESS),    // to (recipient)
+    data: '0x' + amount,
+    block_number: '1',
+    block_hash: '0x0',
+    block_timestamp: '2024-01-01T00:00:00Z',
+    log_index: '0',
+    transaction_hash: '0x0',
+    transaction_index: '0',
+    transaction_value: '0',
+    decoded_event: null,
+    ...overrides,
+  };
+}
+
+describe('detectAaveWithdraws', () => {
+  it('detects a withdraw with matching transfers, correct fields, and indices removed', () => {
+    const logs = [createWithdrawLog()];
+    // aToken burn: from user, to zero
+    const burnTransfer = createTransfer({
+      from: USER_ADDRESS,
+      to: ZERO_ADDRESS,
+      tokenAddress: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1',
+      tokenName: 'Aave USDT',
+      tokenSymbol: 'aUSDT',
+      amount: '2000000',
+    });
+    // Underlying transfer: reserve token to user
+    const underlyingTransfer = createTransfer({
+      from: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      to: USER_ADDRESS,
+      tokenAddress: ASSET_ADDRESS,
+      amount: '2000000',
+    });
+    const transfers = [burnTransfer, underlyingTransfer];
+
+    const results = detectAaveWithdraws(logs, transfers);
+
+    expect(results).toHaveLength(1);
+    const r = results[0];
+    expect(r.operation.type).toBe('aave-withdraw');
+    expect(r.operation.logIndex).toBe(0);
+    expect(r.operation.asset).toBe(ASSET_ADDRESS);
+    expect(r.operation.assetName).toBe('Tether USD');
+    expect(r.operation.assetSymbol).toBe('USDT');
+    expect(r.operation.assetLogo).toBe('https://logo.example.com/usdt.png');
+    expect(r.operation.amount).toBe('2000000');
+    expect(r.operation.decimals).toBe(6);
+    expect(r.operation.withdrawer).toBe(USER_ADDRESS);
+    expect(r.operation.to).toBeNull();
+    expect(r.transferIndicesToRemove).toEqual(expect.arrayContaining([0, 1]));
+    expect(r.transferIndicesToRemove).toHaveLength(2);
+  });
+
+  it('sets to to null when recipient equals user', () => {
+    const logs = [createWithdrawLog()];
+    const transfers = [
+      createTransfer({ from: USER_ADDRESS, to: ZERO_ADDRESS }),
+      createTransfer({ from: '0xbbbb', to: USER_ADDRESS }),
+    ];
+
+    const results = detectAaveWithdraws(logs, transfers);
+    expect(results[0].operation.to).toBeNull();
+  });
+
+  it('populates to when recipient differs from user', () => {
+    const logs = [createWithdrawLog({ topic3: padAddress(OTHER_ADDRESS) })];
+    const transfers = [
+      createTransfer({ from: USER_ADDRESS, to: ZERO_ADDRESS }),
+      createTransfer({ from: '0xbbbb', to: OTHER_ADDRESS }),
+    ];
+
+    const results = detectAaveWithdraws(logs, transfers);
+    expect(results[0].operation.to).toBe(OTHER_ADDRESS);
+    expect(results[0].operation.withdrawer).toBe(USER_ADDRESS);
+  });
+
+  it('returns operation with event data when no matching transfers found', () => {
+    const logs = [createWithdrawLog()];
+    const transfers = [createTransfer({ tokenAddress: '0x9999999999999999999999999999999999999999' })];
+
+    const results = detectAaveWithdraws(logs, transfers);
+    expect(results).toHaveLength(1);
+    expect(results[0].operation.assetName).toBe('Unknown');
+    expect(results[0].operation.assetSymbol).toBe('???');
+    expect(results[0].operation.amount).toBe('2000000');
+    expect(results[0].operation.decimals).toBe(18);
+  });
+
+  it('skips logs with missing topics', () => {
+    const logs = [
+      createWithdrawLog({ topic1: null }),
+      createWithdrawLog({ topic2: null }),
+      createWithdrawLog({ topic3: null }),
+    ];
+    const results = detectAaveWithdraws(logs, []);
+    expect(results).toEqual([]);
+  });
+
+  it('handles multiple withdraws', () => {
+    const asset2 = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+    const logs = [
+      createWithdrawLog(),
+      createWithdrawLog({ topic1: padAddress(asset2), log_index: '5' }),
+    ];
+    const transfers = [
+      createTransfer({ from: USER_ADDRESS, to: ZERO_ADDRESS }),
+      createTransfer({ from: '0xbbbb', to: USER_ADDRESS }),
+      createTransfer({ from: USER_ADDRESS, to: ZERO_ADDRESS, tokenAddress: asset2 }),
+      createTransfer({ from: '0xbbbb', to: USER_ADDRESS, tokenAddress: asset2, tokenName: 'Ether', tokenSymbol: 'ETH' }),
+    ];
+
+    const results = detectAaveWithdraws(logs, transfers);
+    expect(results).toHaveLength(2);
+    expect(results[0].operation.asset).toBe(ASSET_ADDRESS);
+    expect(results[1].operation.asset).toBe(asset2);
+    expect(results[1].operation.logIndex).toBe(5);
   });
 });

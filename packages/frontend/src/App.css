@@ -270,6 +270,14 @@ body {
   background: #2e7d32;
 }
 
+.operation-item.aave-withdraw {
+  border-left: 4px solid #7b1fa2;
+}
+
+.operation-type.aave-withdraw-badge {
+  background: #7b1fa2;
+}
+
 .protocol-name {
   font-weight: 600;
   color: white;

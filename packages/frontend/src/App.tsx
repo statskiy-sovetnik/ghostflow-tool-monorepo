@@ -1,6 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { fetchTokenTransfers } from './services/moralis';
-import type { TokenTransfer, TransactionResult, AaveSupplyOperation, AaveBorrowOperation, AaveRepayOperation, NativeTransfer, FlowItem } from './types/moralis';
+import type { TokenTransfer, TransactionResult, AaveSupplyOperation, AaveBorrowOperation, AaveRepayOperation, AaveWithdrawOperation, NativeTransfer, FlowItem } from './types/moralis';
 
 type ResultState =
   | { type: 'idle' }
@@ -183,6 +183,33 @@ function AaveRepayItem({ operation }: { operation: AaveRepayOperation }) {
   );
 }
 
+function AaveWithdrawItem({ operation }: { operation: AaveWithdrawOperation }) {
+  const amount = formatTransferAmount(operation.amount, operation.decimals);
+  const tokenName = truncateString(operation.assetName, 11);
+  const tokenSymbol = truncateString(operation.assetSymbol, 8);
+
+  return (
+    <li className="operation-item aave-withdraw">
+      <span className="transfer-address">{truncateAddress(operation.withdrawer)}</span>{' '}
+      <span className="operation-type aave-withdraw-badge">Withdrew</span>{' '}
+      <span className="transfer-amount">{amount}</span>{' '}
+      of <span className="transfer-token">
+        {operation.assetLogo && (
+          <img src={operation.assetLogo} alt="" className="token-logo" />
+        )}
+        {tokenName} ({tokenSymbol})
+      </span>{' '}
+      from <span className="protocol-name">Aave V3</span>
+      {operation.to && (
+        <>
+          {' '}to{' '}
+          <span className="transfer-address">{truncateAddress(operation.to)}</span>
+        </>
+      )}
+    </li>
+  );
+}
+
 function NativeTransferItem({ transfer }: { transfer: NativeTransfer }) {
   const amount = formatTransferAmount(transfer.amount, 18);
 
@@ -220,6 +247,9 @@ function TokenFlow({ flow }: { flow: FlowItem[] }) {
             }
             if (item.data.type === 'aave-repay') {
               return <AaveRepayItem key={index} operation={item.data as AaveRepayOperation} />;
+            }
+            if (item.data.type === 'aave-withdraw') {
+              return <AaveWithdrawItem key={index} operation={item.data as AaveWithdrawOperation} />;
             }
             return null;
           }
