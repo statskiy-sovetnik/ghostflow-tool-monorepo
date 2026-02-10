@@ -73,6 +73,7 @@ export interface AaveSupplyOperation extends DeFiOperation {
   assetLogo: string | null;
   amount: string;
   decimals: number;
+  supplier: string;
   onBehalfOf: string | null;
 }
 

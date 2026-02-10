@@ -85,6 +85,7 @@ export function detectAaveSupplies(
         assetLogo: metadataTransfer?.tokenLogo ?? null,
         amount: metadataTransfer?.amount ?? amount,
         decimals: metadataTransfer?.decimals ?? 18,
+        supplier: user,
         onBehalfOf,
       },
       transferIndicesToRemove: indicesToRemove,

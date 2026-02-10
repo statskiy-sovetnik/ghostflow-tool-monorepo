@@ -138,6 +138,7 @@ describe('detectAaveSupplies', () => {
     expect(r.operation.assetLogo).toBe('https://logo.example.com/usdt.png');
     expect(r.operation.amount).toBe('1000000');
     expect(r.operation.decimals).toBe(6);
+    expect(r.operation.supplier).toBe(USER_ADDRESS);
     expect(r.operation.onBehalfOf).toBeNull();
     expect(r.transferIndicesToRemove).toEqual(expect.arrayContaining([0, 1]));
     expect(r.transferIndicesToRemove).toHaveLength(2);

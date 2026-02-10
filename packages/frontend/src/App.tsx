@@ -115,15 +115,16 @@ function AaveSupplyItem({ operation }: { operation: AaveSupplyOperation }) {
 
   return (
     <li className="operation-item aave-supply">
-      <span className="operation-type">Supply</span>{' '}
+      <span className="transfer-address">{truncateAddress(operation.supplier)}</span>{' '}
+      <span className="operation-type">Supplied</span>{' '}
       <span className="transfer-amount">{amount}</span>{' '}
-      <span className="transfer-token">
+      of <span className="transfer-token">
         {operation.assetLogo && (
           <img src={operation.assetLogo} alt="" className="token-logo" />
         )}
         {tokenName} ({tokenSymbol})
       </span>{' '}
-      to <span className="protocol-name">Aave V3</span>
+      on <span className="protocol-name">Aave V3</span>
       {operation.onBehalfOf && (
         <>
           {' '}on behalf of{' '}
@@ -141,15 +142,16 @@ function AaveBorrowItem({ operation }: { operation: AaveBorrowOperation }) {
 
   return (
     <li className="operation-item aave-borrow">
-      <span className="operation-type aave-borrow-badge">Borrow</span>{' '}
+      <span className="transfer-address">{truncateAddress(operation.borrower)}</span>{' '}
+      <span className="operation-type aave-borrow-badge">Borrowed</span>{' '}
       <span className="transfer-amount">{amount}</span>{' '}
-      <span className="transfer-token">
+      of <span className="transfer-token">
         {operation.assetLogo && (
           <img src={operation.assetLogo} alt="" className="token-logo" />
         )}
         {tokenName} ({tokenSymbol})
       </span>{' '}
-      from <span className="protocol-name">Aave V3</span>
+      on <span className="protocol-name">Aave V3</span>
     </li>
   );
 }
@@ -161,15 +163,16 @@ function AaveRepayItem({ operation }: { operation: AaveRepayOperation }) {
 
   return (
     <li className="operation-item aave-repay">
-      <span className="operation-type aave-repay-badge">Repay</span>{' '}
+      <span className="transfer-address">{truncateAddress(operation.repayer)}</span>{' '}
+      <span className="operation-type aave-repay-badge">Repaid</span>{' '}
       <span className="transfer-amount">{amount}</span>{' '}
-      <span className="transfer-token">
+      of <span className="transfer-token">
         {operation.assetLogo && (
           <img src={operation.assetLogo} alt="" className="token-logo" />
         )}
         {tokenName} ({tokenSymbol})
       </span>{' '}
-      to <span className="protocol-name">Aave V3</span>
+      on <span className="protocol-name">Aave V3</span>
       {operation.onBehalfOf && (
         <>
           {' '}on behalf of{' '}
