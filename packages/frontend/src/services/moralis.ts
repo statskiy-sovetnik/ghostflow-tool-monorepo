@@ -1,7 +1,8 @@
 import Moralis from 'moralis';
-import type { MoralisTransactionLog, TransactionResult, TokenTransfer, FlowItem } from '../types/moralis';
+import type { MoralisTransactionLog, MoralisInternalTransaction, TransactionResult, TokenTransfer, FlowItem } from '../types/moralis';
 import { parseERC20Transfers } from '../parsers/erc20TransferParser';
 import { detectAaveSupplies } from '../parsers/aaveV3Parser';
+import { parseNativeTransfers } from '../parsers/nativeTransferParser';
 import { fetchTokenMetadataBatch } from './tokenMetadata';
 
 let initialized = false;
@@ -35,6 +36,7 @@ export async function fetchTokenTransfers(
   const response = await Moralis.EvmApi.transaction.getTransactionVerbose({
     transactionHash,
     chain: Moralis.EvmUtils.EvmChain.ETHEREUM,
+    include: "internal_transactions"
   });
 
   if (!response) {
@@ -47,52 +49,72 @@ export async function fetchTokenTransfers(
   // Parse raw ERC-20 transfers from logs
   const rawTransfers = parseERC20Transfers(logs);
 
-  if (rawTransfers.length === 0) {
-    return {
-      txHash: transactionHash,
-      flow: [],
-    };
-  }
+  let flow: FlowItem[] = [];
 
-  // Get unique token addresses
-  const uniqueAddresses = [...new Set(rawTransfers.map((t) => t.tokenAddress))];
+  if (rawTransfers.length > 0) {
+    // Get unique token addresses
+    const uniqueAddresses = [...new Set(rawTransfers.map((t) => t.tokenAddress))];
 
-  // Fetch metadata for all tokens
-  const metadataMap = await fetchTokenMetadataBatch(uniqueAddresses);
+    // Fetch metadata for all tokens
+    const metadataMap = await fetchTokenMetadataBatch(uniqueAddresses);
 
-  // Enrich transfers with metadata
-  const transfers: TokenTransfer[] = rawTransfers.map((raw) => {
-    const metadata = metadataMap.get(raw.tokenAddress.toLowerCase())!;
-    return {
-      from: raw.from,
-      to: raw.to,
-      tokenAddress: raw.tokenAddress,
-      tokenName: metadata.name,
-      tokenSymbol: metadata.symbol,
-      tokenLogo: metadata.logo,
-      amount: raw.value,
-      decimals: metadata.decimals,
-      logIndex: raw.logIndex,
-    };
-  });
+    // Enrich transfers with metadata
+    const transfers: TokenTransfer[] = rawTransfers.map((raw) => {
+      const metadata = metadataMap.get(raw.tokenAddress.toLowerCase())!;
+      return {
+        from: raw.from,
+        to: raw.to,
+        tokenAddress: raw.tokenAddress,
+        tokenName: metadata.name,
+        tokenSymbol: metadata.symbol,
+        tokenLogo: metadata.logo,
+        amount: raw.value,
+        decimals: metadata.decimals,
+        logIndex: raw.logIndex,
+      };
+    });
 
-  // Detect DeFi operations
-  const indicesToRemove = new Set<number>();
+    // Detect DeFi operations
+    const indicesToRemove = new Set<number>();
 
-  const aaveSupplies = detectAaveSupplies(logs, transfers);
-  const operationItems: FlowItem[] = [];
-  for (const supply of aaveSupplies) {
-    operationItems.push({ kind: 'operation', data: supply.operation });
-    for (const idx of supply.transferIndicesToRemove) {
-      indicesToRemove.add(idx);
+    const aaveSupplies = detectAaveSupplies(logs, transfers);
+    const operationItems: FlowItem[] = [];
+    for (const supply of aaveSupplies) {
+      operationItems.push({ kind: 'operation', data: supply.operation });
+      for (const idx of supply.transferIndicesToRemove) {
+        indicesToRemove.add(idx);
+      }
     }
+
+    const transferItems: FlowItem[] = transfers
+      .filter((_, i) => !indicesToRemove.has(i))
+      .map((t) => ({ kind: 'transfer' as const, data: t }));
+
+    flow = [...transferItems, ...operationItems].sort(
+      (a, b) => a.data.logIndex - b.data.logIndex,
+    );
   }
 
-  const transferItems: FlowItem[] = transfers
-    .filter((_, i) => !indicesToRemove.has(i))
-    .map((t) => ({ kind: 'transfer' as const, data: t }));
+  // Parse native ETH transfers (top-level + internal)
+  const internalTxs = (json.internal_transactions ?? []) as MoralisInternalTransaction[];
+  const maxLogIndex = flow.length > 0
+    ? Math.max(...flow.map((item) => item.data.logIndex))
+    : -1;
 
-  const flow: FlowItem[] = [...transferItems, ...operationItems].sort(
+  const nativeTransfers = parseNativeTransfers(
+    internalTxs,
+    json.value as string,
+    json.from_address as string,
+    json.to_address as string,
+    maxLogIndex + 1,
+  );
+
+  const nativeItems: FlowItem[] = nativeTransfers.map((nt) => ({
+    kind: 'native-transfer' as const,
+    data: nt,
+  }));
+
+  flow = [...flow, ...nativeItems].sort(
     (a, b) => a.data.logIndex - b.data.logIndex,
   );
 

@@ -46,7 +46,8 @@ export interface TokenTransfer {
 
 export type FlowItem =
   | { kind: 'transfer'; data: TokenTransfer }
-  | { kind: 'operation'; data: DeFiOperation };
+  | { kind: 'operation'; data: DeFiOperation }
+  | { kind: 'native-transfer'; data: NativeTransfer };
 
 export interface TransactionResult {
   txHash: string;
@@ -81,4 +82,26 @@ export interface TokenMetadata {
   symbol: string;
   decimals: number;
   logo: string | null;
+}
+
+export interface MoralisInternalTransaction {
+  transaction_hash: string;
+  block_number: number;
+  block_hash: string;
+  type: string;
+  from: string;
+  to: string;
+  value: string;
+  gas: string;
+  gas_used: string;
+  input: string;
+  output: string;
+  error: string | null;
+}
+
+export interface NativeTransfer {
+  from: string;
+  to: string;
+  amount: string;
+  logIndex: number;
 }

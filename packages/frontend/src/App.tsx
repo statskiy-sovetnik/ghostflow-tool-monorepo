@@ -1,6 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { fetchTokenTransfers } from './services/moralis';
-import type { TokenTransfer, TransactionResult, AaveSupplyOperation, FlowItem } from './types/moralis';
+import type { TokenTransfer, TransactionResult, AaveSupplyOperation, NativeTransfer, FlowItem } from './types/moralis';
 
 type ResultState =
   | { type: 'idle' }
@@ -134,6 +134,20 @@ function AaveSupplyItem({ operation }: { operation: AaveSupplyOperation }) {
   );
 }
 
+function NativeTransferItem({ transfer }: { transfer: NativeTransfer }) {
+  const amount = formatTransferAmount(transfer.amount, 18);
+
+  return (
+    <li className="native-transfer-item">
+      <span className="native-transfer-badge">ETH Transfer</span>{' '}
+      of <span className="transfer-amount">{amount}</span>{' '}
+      <span className="native-token-label">Ξ ETH</span>{' '}
+      from <span className="transfer-address">{truncateAddress(transfer.from)}</span>{' '}
+      to <span className="transfer-address">{truncateAddress(transfer.to)}</span>
+    </li>
+  );
+}
+
 function TokenFlow({ flow }: { flow: FlowItem[] }) {
   if (flow.length === 0) {
     return (
@@ -154,7 +168,10 @@ function TokenFlow({ flow }: { flow: FlowItem[] }) {
             }
             return null;
           }
-          return <TransferItem key={index} transfer={item.data} />;
+          if (item.kind === 'native-transfer') {
+            return <NativeTransferItem key={index} transfer={item.data} />;
+          }
+          return <TransferItem key={index} transfer={item.data as TokenTransfer} />;
         })}
       </ul>
     </div>
