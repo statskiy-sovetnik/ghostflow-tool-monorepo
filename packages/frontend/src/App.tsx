@@ -1,5 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { fetchTokenTransfers } from './services/moralis';
+import { useContractName } from './hooks/useContractName';
 import type { TokenTransfer, TransactionResult, AaveSupplyOperation, AaveBorrowOperation, AaveRepayOperation, AaveWithdrawOperation, NativeTransfer, FlowItem } from './types/moralis';
 
 type ResultState =
@@ -35,6 +36,15 @@ export function truncateString(str: string, maxLength: number): string {
     return str;
   }
   return `${str.slice(0, maxLength)}...`;
+}
+
+function AddressLabel({ address }: { address: string }) {
+  const name = useContractName(address);
+  return (
+    <span className="transfer-address" title={address}>
+      {name ? truncateString(name, 18) : truncateAddress(address)}
+    </span>
+  );
 }
 
 export function isMint(transfer: TokenTransfer): boolean {
@@ -81,7 +91,7 @@ function TransferItem({ transfer }: { transfer: TokenTransfer }) {
         <span className="transfer-index">Mint</span>{' '}
         of <span className="transfer-amount">{amount}</span>{' '}
         {tokenDisplay}{' '}
-        to <span className="transfer-address">{truncateAddress(transfer.to)}</span>
+        to <AddressLabel address={transfer.to} />
       </li>
     );
   }
@@ -92,7 +102,7 @@ function TransferItem({ transfer }: { transfer: TokenTransfer }) {
         <span className="transfer-index">Burn</span>{' '}
         of <span className="transfer-amount">{amount}</span>{' '}
         {tokenDisplay}{' '}
-        from <span className="transfer-address">{truncateAddress(transfer.from)}</span>
+        from <AddressLabel address={transfer.from} />
       </li>
     );
   }
@@ -102,8 +112,8 @@ function TransferItem({ transfer }: { transfer: TokenTransfer }) {
       <span className="transfer-index">Transfer</span>{' '}
       of <span className="transfer-amount">{amount}</span>{' '}
       {tokenDisplay}{' '}
-      from <span className="transfer-address">{truncateAddress(transfer.from)}</span>{' '}
-      to <span className="transfer-address">{truncateAddress(transfer.to)}</span>
+      from <AddressLabel address={transfer.from} />{' '}
+      to <AddressLabel address={transfer.to} />
     </li>
   );
 }
@@ -115,7 +125,7 @@ function AaveSupplyItem({ operation }: { operation: AaveSupplyOperation }) {
 
   return (
     <li className="operation-item aave-supply">
-      <span className="transfer-address">{truncateAddress(operation.supplier)}</span>{' '}
+      <AddressLabel address={operation.supplier} />{' '}
       <span className="operation-type">Supplied</span>{' '}
       <span className="transfer-amount">{amount}</span>{' '}
       of <span className="transfer-token">
@@ -128,7 +138,7 @@ function AaveSupplyItem({ operation }: { operation: AaveSupplyOperation }) {
       {operation.onBehalfOf && (
         <>
           {' '}on behalf of{' '}
-          <span className="transfer-address">{truncateAddress(operation.onBehalfOf)}</span>
+          <AddressLabel address={operation.onBehalfOf} />
         </>
       )}
     </li>
@@ -142,7 +152,7 @@ function AaveBorrowItem({ operation }: { operation: AaveBorrowOperation }) {
 
   return (
     <li className="operation-item aave-borrow">
-      <span className="transfer-address">{truncateAddress(operation.borrower)}</span>{' '}
+      <AddressLabel address={operation.borrower} />{' '}
       <span className="operation-type aave-borrow-badge">Borrowed</span>{' '}
       <span className="transfer-amount">{amount}</span>{' '}
       of <span className="transfer-token">
@@ -163,7 +173,7 @@ function AaveRepayItem({ operation }: { operation: AaveRepayOperation }) {
 
   return (
     <li className="operation-item aave-repay">
-      <span className="transfer-address">{truncateAddress(operation.repayer)}</span>{' '}
+      <AddressLabel address={operation.repayer} />{' '}
       <span className="operation-type aave-repay-badge">Repaid</span>{' '}
       <span className="transfer-amount">{amount}</span>{' '}
       of <span className="transfer-token">
@@ -176,7 +186,7 @@ function AaveRepayItem({ operation }: { operation: AaveRepayOperation }) {
       {operation.onBehalfOf && (
         <>
           {' '}on behalf of{' '}
-          <span className="transfer-address">{truncateAddress(operation.onBehalfOf)}</span>
+          <AddressLabel address={operation.onBehalfOf} />
         </>
       )}
     </li>
@@ -190,7 +200,7 @@ function AaveWithdrawItem({ operation }: { operation: AaveWithdrawOperation }) {
 
   return (
     <li className="operation-item aave-withdraw">
-      <span className="transfer-address">{truncateAddress(operation.withdrawer)}</span>{' '}
+      <AddressLabel address={operation.withdrawer} />{' '}
       <span className="operation-type aave-withdraw-badge">Withdrew</span>{' '}
       <span className="transfer-amount">{amount}</span>{' '}
       of <span className="transfer-token">
@@ -203,7 +213,7 @@ function AaveWithdrawItem({ operation }: { operation: AaveWithdrawOperation }) {
       {operation.to && (
         <>
           {' '}to{' '}
-          <span className="transfer-address">{truncateAddress(operation.to)}</span>
+          <AddressLabel address={operation.to} />
         </>
       )}
     </li>
@@ -218,8 +228,8 @@ function NativeTransferItem({ transfer }: { transfer: NativeTransfer }) {
       <span className="native-transfer-badge">ETH Transfer</span>{' '}
       of <span className="transfer-amount">{amount}</span>{' '}
       <span className="native-token-label">Ξ ETH</span>{' '}
-      from <span className="transfer-address">{truncateAddress(transfer.from)}</span>{' '}
-      to <span className="transfer-address">{truncateAddress(transfer.to)}</span>
+      from <AddressLabel address={transfer.from} />{' '}
+      to <AddressLabel address={transfer.to} />
     </li>
   );
 }
