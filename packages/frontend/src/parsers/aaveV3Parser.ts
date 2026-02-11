@@ -57,19 +57,44 @@ export function detectAaveSupplies(
     const onBehalfOfLower = onBehalfOfRaw.toLowerCase();
 
     const indicesToRemove: number[] = [];
+    const eventLogIndex = parseInt(log.log_index);
 
-    // Find underlying token transfer: tokenAddress matches reserve AND from matches user
-    const underlyingIdx = transfers.findIndex(
-      (t) => t.tokenAddress.toLowerCase() === reserveLower && t.from.toLowerCase() === userLower,
-    );
+    // Find underlying token transfer: tokenAddress matches reserve AND from matches user, closest logIndex <= event
+    let underlyingIdx = -1;
+    let underlyingDist = Infinity;
+    for (let i = 0; i < transfers.length; i++) {
+      const t = transfers[i];
+      if (
+        t.tokenAddress.toLowerCase() === reserveLower &&
+        t.from.toLowerCase() === userLower &&
+        t.logIndex <= eventLogIndex
+      ) {
+        const dist = eventLogIndex - t.logIndex;
+        if (dist < underlyingDist) {
+          underlyingIdx = i;
+          underlyingDist = dist;
+        }
+      }
+    }
     if (underlyingIdx !== -1) indicesToRemove.push(underlyingIdx);
 
-    // Find aToken mint: from is zero address AND to matches onBehalfOf
-    const mintIdx = transfers.findIndex(
-      (t) =>
+    // Find aToken mint: from is zero address AND to matches onBehalfOf, closest logIndex <= event
+    let mintIdx = -1;
+    let mintDist = Infinity;
+    for (let i = 0; i < transfers.length; i++) {
+      const t = transfers[i];
+      if (
         t.from.toLowerCase() === ZERO_ADDRESS &&
-        (t.to.toLowerCase() === onBehalfOfLower || t.to.toLowerCase() === userLower),
-    );
+        (t.to.toLowerCase() === onBehalfOfLower || t.to.toLowerCase() === userLower) &&
+        t.logIndex <= eventLogIndex
+      ) {
+        const dist = eventLogIndex - t.logIndex;
+        if (dist < mintDist) {
+          mintIdx = i;
+          mintDist = dist;
+        }
+      }
+    }
     if (mintIdx !== -1) indicesToRemove.push(mintIdx);
 
     // Get token metadata from the underlying transfer if found
@@ -127,19 +152,44 @@ export function detectAaveBorrows(
     const onBehalfOfLower = onBehalfOfRaw.toLowerCase();
 
     const indicesToRemove: number[] = [];
+    const eventLogIndex = parseInt(log.log_index);
 
-    // Find underlying token transfer: tokenAddress matches reserve AND to matches onBehalfOf (borrower receives tokens)
-    const underlyingIdx = transfers.findIndex(
-      (t) => t.tokenAddress.toLowerCase() === reserveLower && t.to.toLowerCase() === onBehalfOfLower,
-    );
+    // Find underlying token transfer: tokenAddress matches reserve AND to matches onBehalfOf, closest logIndex <= event
+    let underlyingIdx = -1;
+    let underlyingDist = Infinity;
+    for (let i = 0; i < transfers.length; i++) {
+      const t = transfers[i];
+      if (
+        t.tokenAddress.toLowerCase() === reserveLower &&
+        t.to.toLowerCase() === onBehalfOfLower &&
+        t.logIndex <= eventLogIndex
+      ) {
+        const dist = eventLogIndex - t.logIndex;
+        if (dist < underlyingDist) {
+          underlyingIdx = i;
+          underlyingDist = dist;
+        }
+      }
+    }
     if (underlyingIdx !== -1) indicesToRemove.push(underlyingIdx);
 
-    // Find debt token mint: from is zero address AND to matches onBehalfOf
-    const debtMintIdx = transfers.findIndex(
-      (t) =>
+    // Find debt token mint: from is zero address AND to matches onBehalfOf, closest logIndex <= event
+    let debtMintIdx = -1;
+    let debtMintDist = Infinity;
+    for (let i = 0; i < transfers.length; i++) {
+      const t = transfers[i];
+      if (
         t.from.toLowerCase() === ZERO_ADDRESS &&
-        t.to.toLowerCase() === onBehalfOfLower,
-    );
+        t.to.toLowerCase() === onBehalfOfLower &&
+        t.logIndex <= eventLogIndex
+      ) {
+        const dist = eventLogIndex - t.logIndex;
+        if (dist < debtMintDist) {
+          debtMintIdx = i;
+          debtMintDist = dist;
+        }
+      }
+    }
     if (debtMintIdx !== -1) indicesToRemove.push(debtMintIdx);
 
     const metadataTransfer = underlyingIdx !== -1 ? transfers[underlyingIdx] : null;
@@ -191,17 +241,44 @@ export function detectAaveRepays(
     const userLower = userRaw.toLowerCase();
 
     const indicesToRemove: number[] = [];
+    const eventLogIndex = parseInt(log.log_index);
 
-    // Find underlying token transfer: tokenAddress matches reserve AND from matches repayer
-    const underlyingIdx = transfers.findIndex(
-      (t) => t.tokenAddress.toLowerCase() === reserveLower && t.from.toLowerCase() === repayerLower,
-    );
+    // Find underlying token transfer: tokenAddress matches reserve AND from matches repayer, closest logIndex <= event
+    let underlyingIdx = -1;
+    let underlyingDist = Infinity;
+    for (let i = 0; i < transfers.length; i++) {
+      const t = transfers[i];
+      if (
+        t.tokenAddress.toLowerCase() === reserveLower &&
+        t.from.toLowerCase() === repayerLower &&
+        t.logIndex <= eventLogIndex
+      ) {
+        const dist = eventLogIndex - t.logIndex;
+        if (dist < underlyingDist) {
+          underlyingIdx = i;
+          underlyingDist = dist;
+        }
+      }
+    }
     if (underlyingIdx !== -1) indicesToRemove.push(underlyingIdx);
 
-    // Find debt token burn: to is zero address
-    const debtBurnIdx = transfers.findIndex(
-      (t) => t.to.toLowerCase() === ZERO_ADDRESS,
-    );
+    // Find debt token burn: from = user (whose debt), to = zero address, closest logIndex <= event
+    let debtBurnIdx = -1;
+    let debtBurnDist = Infinity;
+    for (let i = 0; i < transfers.length; i++) {
+      const t = transfers[i];
+      if (
+        t.from.toLowerCase() === userLower &&
+        t.to.toLowerCase() === ZERO_ADDRESS &&
+        t.logIndex <= eventLogIndex
+      ) {
+        const dist = eventLogIndex - t.logIndex;
+        if (dist < debtBurnDist) {
+          debtBurnIdx = i;
+          debtBurnDist = dist;
+        }
+      }
+    }
     if (debtBurnIdx !== -1) indicesToRemove.push(debtBurnIdx);
 
     const metadataTransfer = underlyingIdx !== -1 ? transfers[underlyingIdx] : null;
@@ -262,16 +339,43 @@ export function detectAaveWithdraws(
 
     const indicesToRemove: number[] = [];
 
-    // Find aToken burn: from = user, to = zero address
-    const burnIdx = transfers.findIndex(
-      (t) => t.from.toLowerCase() === userLower && t.to.toLowerCase() === ZERO_ADDRESS,
-    );
+    // Find aToken burn: from = user, to = zero address, closest logIndex <= event
+    const eventLogIndex = parseInt(log.log_index);
+    let burnIdx = -1;
+    let burnDist = Infinity;
+    for (let i = 0; i < transfers.length; i++) {
+      const t = transfers[i];
+      if (
+        t.from.toLowerCase() === userLower &&
+        t.to.toLowerCase() === ZERO_ADDRESS &&
+        t.logIndex <= eventLogIndex
+      ) {
+        const dist = eventLogIndex - t.logIndex;
+        if (dist < burnDist) {
+          burnIdx = i;
+          burnDist = dist;
+        }
+      }
+    }
     if (burnIdx !== -1) indicesToRemove.push(burnIdx);
 
-    // Find underlying token transfer: tokenAddress = reserve, to = recipient
-    const underlyingIdx = transfers.findIndex(
-      (t) => t.tokenAddress.toLowerCase() === reserveLower && t.to.toLowerCase() === recipient,
-    );
+    // Find underlying token transfer: tokenAddress = reserve, to = recipient, closest logIndex <= event
+    let underlyingIdx = -1;
+    let underlyingDist = Infinity;
+    for (let i = 0; i < transfers.length; i++) {
+      const t = transfers[i];
+      if (
+        t.tokenAddress.toLowerCase() === reserveLower &&
+        t.to.toLowerCase() === recipient &&
+        t.logIndex <= eventLogIndex
+      ) {
+        const dist = eventLogIndex - t.logIndex;
+        if (dist < underlyingDist) {
+          underlyingIdx = i;
+          underlyingDist = dist;
+        }
+      }
+    }
     if (underlyingIdx !== -1) indicesToRemove.push(underlyingIdx);
 
     const metadataTransfer = underlyingIdx !== -1 ? transfers[underlyingIdx] : null;

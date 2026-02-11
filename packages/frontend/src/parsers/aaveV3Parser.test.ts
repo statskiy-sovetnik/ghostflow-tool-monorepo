@@ -10,7 +10,10 @@ import {
   AAVE_V3_REPAY_TOPIC0,
   AAVE_V3_WITHDRAW_TOPIC0,
 } from './aaveV3Parser';
-import type { MoralisTransactionLog, TokenTransfer } from '../types/moralis';
+import { detectUniswapSwaps } from './uniswapParser';
+import { parseERC20Transfers } from './erc20TransferParser';
+import type { MoralisTransactionLog, TokenTransfer, DeFiOperation } from '../types/moralis';
+import * as multiOpFixture from './__fixtures__/tx-aave-uniswap-multi-op';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const USER_ADDRESS = '0x1234567890abcdef1234567890abcdef12345678';
@@ -488,5 +491,179 @@ describe('detectAaveWithdraws', () => {
     expect(results[0].operation.asset).toBe(ASSET_ADDRESS);
     expect(results[1].operation.asset).toBe(asset2);
     expect(results[1].operation.logIndex).toBe(5);
+  });
+});
+
+describe('real transaction fixture — Aave + Uniswap multi-op', () => {
+  // Token metadata for enrichment (no API calls in tests)
+  const tokenMetadata: Record<string, { name: string; symbol: string; decimals: number; logo: string | null }> = {
+    '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': { name: 'Wrapped Ether', symbol: 'WETH', decimals: 18, logo: null },
+    '0xbe9895146f7af43049ca1c1ae358b0541ea49704': { name: 'Coinbase Wrapped Staked ETH', symbol: 'cbETH', decimals: 18, logo: null },
+    '0x4d5f47fa6a74757f35c14fd3a6ef8e3c9bc514e8': { name: 'Aave Ethereum WETH', symbol: 'aEthWETH', decimals: 18, logo: null },
+    '0x0c91bca95b5fe69164ce583a2ec9429a569798ed': { name: 'Aave Ethereum Variable Debt cbETH', symbol: 'variableDebtEthcbETH', decimals: 18, logo: null },
+  };
+
+  function enrichTransfers() {
+    const rawTransfers = parseERC20Transfers(multiOpFixture.logs);
+    return rawTransfers.map((raw) => {
+      const meta = tokenMetadata[raw.tokenAddress.toLowerCase()] ?? {
+        name: 'Unknown',
+        symbol: '???',
+        decimals: 18,
+        logo: null,
+      };
+      return {
+        from: raw.from,
+        to: raw.to,
+        tokenAddress: raw.tokenAddress,
+        tokenName: meta.name,
+        tokenSymbol: meta.symbol,
+        tokenLogo: meta.logo,
+        amount: raw.value,
+        decimals: meta.decimals,
+        logIndex: raw.logIndex,
+      } satisfies TokenTransfer;
+    });
+  }
+
+  it('detects all 7 operations in correct order', () => {
+    const transfers = enrichTransfers();
+
+    // Run all Aave parsers
+    const supplies = detectAaveSupplies(multiOpFixture.logs, transfers);
+    const borrows = detectAaveBorrows(multiOpFixture.logs, transfers);
+    const repays = detectAaveRepays(multiOpFixture.logs, transfers);
+    const withdraws = detectAaveWithdraws(multiOpFixture.logs, transfers);
+
+    // Collect consumed transfer indices from Aave
+    const indicesToRemove = new Set<number>();
+    for (const r of [...supplies, ...borrows, ...repays, ...withdraws]) {
+      for (const idx of r.transferIndicesToRemove) indicesToRemove.add(idx);
+    }
+
+    // Run Uniswap parser (no native transfers in this fixture)
+    const uniResult = detectUniswapSwaps(multiOpFixture.logs, transfers, [], multiOpFixture.FROM_ADDRESS);
+    for (const idx of uniResult.transferIndicesToRemove) indicesToRemove.add(idx);
+
+    // Assemble all operations sorted by logIndex
+    const allOps: DeFiOperation[] = [
+      ...supplies.map((r) => r.operation),
+      ...borrows.map((r) => r.operation),
+      ...repays.map((r) => r.operation),
+      ...withdraws.map((r) => r.operation),
+      ...uniResult.operations,
+    ].sort((a, b) => a.logIndex - b.logIndex);
+
+    // Should detect exactly 7 operations
+    expect(allOps).toHaveLength(7);
+
+    // Verify operation types and logIndex in order
+    expect(allOps[0].type).toBe('aave-supply');     // logIndex 99
+    expect(allOps[0].logIndex).toBe(99);
+    expect(allOps[1].type).toBe('aave-withdraw');    // logIndex 104
+    expect(allOps[1].logIndex).toBe(104);
+    expect(allOps[2].type).toBe('aave-withdraw');    // logIndex 109
+    expect(allOps[2].logIndex).toBe(109);
+    expect(allOps[3].type).toBe('uniswap-swap');     // logIndex 116
+    expect(allOps[3].logIndex).toBe(116);
+    expect(allOps[4].type).toBe('aave-repay');       // logIndex 122
+    expect(allOps[4].logIndex).toBe(122);
+    expect(allOps[5].type).toBe('aave-withdraw');    // logIndex 127
+    expect(allOps[5].logIndex).toBe(127);
+    expect(allOps[6].type).toBe('uniswap-swap');     // logIndex 132
+    expect(allOps[6].logIndex).toBe(132);
+  });
+
+  it('detects correct asset symbols on Aave operations', () => {
+    const transfers = enrichTransfers();
+    const supplies = detectAaveSupplies(multiOpFixture.logs, transfers);
+    const repays = detectAaveRepays(multiOpFixture.logs, transfers);
+    const withdraws = detectAaveWithdraws(multiOpFixture.logs, transfers);
+
+    // Supply: 90 WETH
+    expect(supplies).toHaveLength(1);
+    expect(supplies[0].operation.assetSymbol).toBe('WETH');
+    expect(supplies[0].operation.amount).toBe('90000000000000000000'); // 90 * 1e18
+
+    // Repay: cbETH
+    expect(repays).toHaveLength(1);
+    expect(repays[0].operation.assetSymbol).toBe('cbETH');
+
+    // All 3 withdraws are WETH with distinct amounts
+    expect(withdraws).toHaveLength(3);
+    const withdrawAmounts = withdraws.map((w) => w.operation.amount);
+    for (const w of withdraws) {
+      expect(w.operation.assetSymbol).toBe('WETH');
+    }
+    // Each withdrawal should have a unique amount (not all grabbing the same transfer)
+    const uniqueAmounts = new Set(withdrawAmounts);
+    expect(uniqueAmounts.size).toBe(3);
+    // None of the withdrawals should show 90 WETH (the supply amount / flash loan amount)
+    for (const amt of withdrawAmounts) {
+      expect(amt).not.toBe('90000000000000000000');
+    }
+  });
+
+  it('Uniswap swaps have correct token pairs', () => {
+    const transfers = enrichTransfers();
+    const uniResult = detectUniswapSwaps(multiOpFixture.logs, transfers, [], multiOpFixture.FROM_ADDRESS);
+
+    expect(uniResult.operations).toHaveLength(2);
+
+    // First swap: WETH → cbETH (logIndex 116)
+    const swap1 = uniResult.operations[0];
+    expect(swap1.version).toBe('v3');
+    expect(swap1.tokenIn.symbol).toBe('WETH');
+    expect(swap1.tokenOut.symbol).toBe('cbETH');
+
+    // Second swap also uses same V3 pool (cbETH/WETH at 0x177622...)
+    // Both swaps share the pool as participant, so the parser attributes
+    // based on transfer ordering. Both are detected as V3 swaps.
+    const swap2 = uniResult.operations[1];
+    expect(swap2.version).toBe('v3');
+    // The two tokens involved are always WETH and cbETH
+    const swap2Tokens = new Set([swap2.tokenIn.symbol, swap2.tokenOut.symbol]);
+    expect(swap2Tokens).toContain('WETH');
+    expect(swap2Tokens).toContain('cbETH');
+  });
+
+  it('consumed transfers do not leak as standalone items', () => {
+    const transfers = enrichTransfers();
+    const supplies = detectAaveSupplies(multiOpFixture.logs, transfers);
+    const borrows = detectAaveBorrows(multiOpFixture.logs, transfers);
+    const repays = detectAaveRepays(multiOpFixture.logs, transfers);
+    const withdraws = detectAaveWithdraws(multiOpFixture.logs, transfers);
+
+    const indicesToRemove = new Set<number>();
+    for (const r of [...supplies, ...borrows, ...repays, ...withdraws]) {
+      for (const idx of r.transferIndicesToRemove) indicesToRemove.add(idx);
+    }
+
+    const uniResult = detectUniswapSwaps(multiOpFixture.logs, transfers, [], multiOpFixture.FROM_ADDRESS);
+    for (const idx of uniResult.transferIndicesToRemove) indicesToRemove.add(idx);
+
+    const remainingTransfers = transfers.filter((_, i) => !indicesToRemove.has(i));
+
+    // Remaining transfers should only be non-DeFi transfers (e.g., Balancer flash loan transfers)
+    // No aToken mints/burns or underlying Aave/Uniswap transfers should remain
+    const aEthWETH = '0x4d5f47fa6a74757f35c14fd3a6ef8e3c9bc514e8';
+    const variableDebtEthcbETH = '0x0c91bca95b5fe69164ce583a2ec9429a569798ed';
+    const WETH = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
+    const user = multiOpFixture.FROM_ADDRESS.toLowerCase();
+
+    for (const t of remainingTransfers) {
+      // aEthWETH and variableDebtEthcbETH should all be consumed
+      expect(t.tokenAddress).not.toBe(aEthWETH);
+      expect(t.tokenAddress).not.toBe(variableDebtEthcbETH);
+    }
+
+    // No WETH transfer from aEthWETH → user should remain (these are the underlying withdraw transfers)
+    const leakedWethWithdraws = remainingTransfers.filter(
+      (t) =>
+        t.tokenAddress.toLowerCase() === WETH &&
+        t.from.toLowerCase() === aEthWETH &&
+        t.to.toLowerCase() === user,
+    );
+    expect(leakedWethWithdraws).toHaveLength(0);
   });
 });
