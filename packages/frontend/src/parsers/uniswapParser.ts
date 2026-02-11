@@ -282,6 +282,28 @@ function buildSwapOperation(
     inputTransfer = matchedTransfers.find((m) => m.transfer.from.toLowerCase() === txFromLower);
   }
 
+  // Fallback for native ETH input via Universal Router: the router wraps ETH and sends
+  // WETH to the pool, so the input transfer is router→pool (not user→pool). Detect this
+  // when there's a native transfer from user→router backing the WETH transfer.
+  if (!inputTransfer) {
+    const wethFromRouter = matchedTransfers.find(
+      (m) =>
+        m.transfer.tokenAddress.toLowerCase() === WETH_ADDRESS &&
+        KNOWN_UNISWAP_ROUTERS.has(m.transfer.from.toLowerCase()) &&
+        participants.has(m.transfer.to.toLowerCase()),
+    );
+    if (wethFromRouter) {
+      const hasNativeBacking = nativeTransfers.some(
+        (nt) =>
+          nt.from.toLowerCase() === txFromLower &&
+          nt.to.toLowerCase() === wethFromRouter.transfer.from.toLowerCase(),
+      );
+      if (hasNativeBacking) {
+        inputTransfer = wethFromRouter;
+      }
+    }
+  }
+
   // Determine user output: transfer where to === txFrom AND from is a participant
   const lastSwapEvent = group[group.length - 1];
   let outputTransfer = matchedTransfers.find(

@@ -15,7 +15,10 @@ import {
   UNISWAP_UNIVERSAL_ROUTER,
   WETH_ADDRESS,
 } from './uniswapConstants';
-import type { MoralisTransactionLog, TokenTransfer, NativeTransfer } from '../types/moralis';
+import type { MoralisTransactionLog, TokenTransfer, NativeTransfer, MoralisInternalTransaction } from '../types/moralis';
+import { parseERC20Transfers, type RawERC20Transfer } from './erc20TransferParser';
+import { parseNativeTransfers } from './nativeTransferParser';
+import * as ethToWlfiFixture from './__fixtures__/tx-eth-to-wlfi-v3-universal-router';
 
 const USER = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const USDC = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
@@ -530,6 +533,81 @@ describe('detectUniswapSwaps', () => {
       expect(result.transferIndicesToRemove).toContain(1);
       expect(result.transferIndicesToRemove).toContain(2);
       expect(result.transferIndicesToRemove).not.toContain(0);
+    });
+  });
+
+  describe('real transaction fixtures', () => {
+    it('ETH → WLFI swap via Universal Router + V3 pool', () => {
+      const { logs, internal_transactions, FROM_ADDRESS, TO_ADDRESS, VALUE, WLFI_ADDRESS, WLFI_AMOUNT } = ethToWlfiFixture;
+
+      // Step 1: Parse ERC-20 transfers from raw logs
+      const rawTransfers = parseERC20Transfers(logs);
+      expect(rawTransfers.length).toBeGreaterThan(0);
+
+      // Step 2: Enrich raw transfers with hardcoded metadata (no API calls in tests)
+      const tokenMetadata: Record<string, { name: string; symbol: string; decimals: number; logo: string | null }> = {
+        '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': { name: 'Wrapped Ether', symbol: 'WETH', decimals: 18, logo: null },
+        [WLFI_ADDRESS]: { name: 'World Liberty Financial', symbol: 'WLFI', decimals: 18, logo: null },
+      };
+
+      const transfers: TokenTransfer[] = rawTransfers.map((raw) => {
+        const meta = tokenMetadata[raw.tokenAddress.toLowerCase()] ?? {
+          name: 'Unknown',
+          symbol: '???',
+          decimals: 18,
+          logo: null,
+        };
+        return {
+          from: raw.from,
+          to: raw.to,
+          tokenAddress: raw.tokenAddress,
+          tokenName: meta.name,
+          tokenSymbol: meta.symbol,
+          tokenLogo: meta.logo,
+          amount: raw.value,
+          decimals: meta.decimals,
+          logIndex: raw.logIndex,
+        };
+      });
+
+      // Step 3: Parse native ETH transfers
+      const erc20MaxLogIndex = Math.max(...transfers.map((t) => t.logIndex));
+      const nativeTransfers = parseNativeTransfers(
+        internal_transactions,
+        VALUE,
+        FROM_ADDRESS,
+        TO_ADDRESS,
+        erc20MaxLogIndex + 1,
+      );
+
+      // Step 4: Detect Uniswap swaps
+      const result = detectUniswapSwaps(logs, transfers, nativeTransfers, FROM_ADDRESS);
+
+      // Assertions
+      expect(result.operations).toHaveLength(1);
+
+      const op = result.operations[0];
+      expect(op.type).toBe('uniswap-swap');
+      expect(op.version).toBe('v3');
+      expect(op.hops).toBe(1);
+
+      // Input: native ETH (wrapped by Universal Router)
+      expect(op.tokenIn.isNative).toBe(true);
+      expect(op.tokenIn.symbol).toBe('ETH');
+      expect(op.tokenIn.name).toBe('Ether');
+      expect(op.tokenIn.amount).toBe(VALUE);
+
+      // Output: WLFI
+      expect(op.tokenOut.symbol).toBe('WLFI');
+      expect(op.tokenOut.amount).toBe(WLFI_AMOUNT);
+      expect(op.tokenOut.address.toLowerCase()).toBe(WLFI_ADDRESS);
+
+      // Transfer indices consumed (both ERC-20 transfers should be consumed)
+      expect(result.transferIndicesToRemove.length).toBeGreaterThanOrEqual(2);
+
+      // Native transfer consumed (ETH wrap from user → Universal Router)
+      expect(result.nativeTransfersToConsume).toHaveLength(1);
+      expect(result.nativeTransfersToConsume[0].from.toLowerCase()).toBe(FROM_ADDRESS);
     });
   });
 });
