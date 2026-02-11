@@ -74,13 +74,14 @@ export async function fetchTokenTransfers(
       };
     });
 
-    // Detect DeFi operations
+    // Detect DeFi operations — shared set prevents cross-parser transfer stealing
     const indicesToRemove = new Set<number>();
+    const claimedIndices = new Set<number>();
 
-    const aaveSupplies = detectAaveSupplies(logs, transfers);
-    const aaveBorrows = detectAaveBorrows(logs, transfers);
-    const aaveRepays = detectAaveRepays(logs, transfers);
-    const aaveWithdraws = detectAaveWithdraws(logs, transfers);
+    const aaveSupplies = detectAaveSupplies(logs, transfers, claimedIndices);
+    const aaveBorrows = detectAaveBorrows(logs, transfers, claimedIndices);
+    const aaveRepays = detectAaveRepays(logs, transfers, claimedIndices);
+    const aaveWithdraws = detectAaveWithdraws(logs, transfers, claimedIndices);
     const operationItems: FlowItem[] = [];
     for (const supply of aaveSupplies) {
       operationItems.push({ kind: 'operation', data: supply.operation });
