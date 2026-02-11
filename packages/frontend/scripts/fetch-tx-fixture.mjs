@@ -6,6 +6,9 @@
  *
  * Output: JSON object with { hash, from_address, to_address, value, logs, internal_transactions }
  */
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Moralis from 'moralis';
 
 const txHash = process.argv[2];
@@ -14,9 +17,22 @@ if (!txHash) {
   process.exit(1);
 }
 
+// Auto-load .env from monorepo root
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const envPath = resolve(__dirname, '../../../.env');
+try {
+  const envContent = readFileSync(envPath, 'utf-8');
+  for (const line of envContent.split('\n')) {
+    const match = line.match(/^([^#=]+)=(.*)$/);
+    if (match) process.env[match[1].trim()] = match[2].trim();
+  }
+} catch {
+  // .env file not found, rely on existing environment
+}
+
 const apiKey = process.env.VITE_MORALIS_API_KEY;
 if (!apiKey) {
-  console.error('VITE_MORALIS_API_KEY not set. Run with: source ../../.env && node scripts/fetch-tx-fixture.mjs');
+  console.error('VITE_MORALIS_API_KEY not set. Create a .env file in the monorepo root.');
   process.exit(1);
 }
 

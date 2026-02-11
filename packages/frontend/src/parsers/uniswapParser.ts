@@ -408,6 +408,102 @@ function buildSwapOperation(
       }
     : null;
 
+  // Contract-mediated swap fallback: when swap sender/recipient differs from txFrom
+  // and is not a known router, find input/output by logIndex proximity to each swap event.
+  if (!tokenIn || !tokenOut) {
+    const effectiveUsers = new Set(
+      group.flatMap((e) => [e.sender.toLowerCase(), e.recipient.toLowerCase()]),
+    );
+    effectiveUsers.delete(txFromLower); // Already tried txFrom
+    // Remove pools — they're not the user
+    for (const event of group) {
+      effectiveUsers.delete(event.pool);
+    }
+
+    for (const user of effectiveUsers) {
+      if (KNOWN_UNISWAP_ROUTERS.has(user)) continue;
+
+      // For each swap event, find its closest input/output transfers by logIndex
+      const claimedIndices: number[] = [];
+      let groupInputTransfer: (typeof matchedTransfers)[number] | undefined;
+      let groupOutputTransfer: (typeof matchedTransfers)[number] | undefined;
+
+      for (const event of group) {
+        let bestInputIdx = -1;
+        let bestInputDist = Infinity;
+        let bestOutputIdx = -1;
+        let bestOutputDist = Infinity;
+
+        for (let i = 0; i < transfers.length; i++) {
+          const t = transfers[i];
+          if (t.logIndex > event.logIndex) continue;
+          const dist = event.logIndex - t.logIndex;
+
+          if (
+            t.to.toLowerCase() === event.pool &&
+            t.from.toLowerCase() === user &&
+            dist < bestInputDist
+          ) {
+            bestInputIdx = i;
+            bestInputDist = dist;
+          }
+          if (
+            t.from.toLowerCase() === event.pool &&
+            t.to.toLowerCase() === user &&
+            dist < bestOutputDist
+          ) {
+            bestOutputIdx = i;
+            bestOutputDist = dist;
+          }
+        }
+
+        if (bestInputIdx !== -1) claimedIndices.push(bestInputIdx);
+        if (bestOutputIdx !== -1) claimedIndices.push(bestOutputIdx);
+
+        // First swap event's output = group output; last event's input = group input
+        if (!groupOutputTransfer && bestOutputIdx !== -1) {
+          groupOutputTransfer = { index: bestOutputIdx, transfer: transfers[bestOutputIdx] };
+        }
+        if (bestInputIdx !== -1) {
+          groupInputTransfer = { index: bestInputIdx, transfer: transfers[bestInputIdx] };
+        }
+      }
+
+      if (groupInputTransfer && groupOutputTransfer) {
+        const mediatedOp: UniswapSwapOperation = {
+          type: 'uniswap-swap',
+          logIndex: group[0].logIndex,
+          version,
+          tokenIn: {
+            address: groupInputTransfer.transfer.tokenAddress,
+            symbol: groupInputTransfer.transfer.tokenSymbol,
+            name: groupInputTransfer.transfer.tokenName,
+            logo: groupInputTransfer.transfer.tokenLogo,
+            decimals: groupInputTransfer.transfer.decimals,
+            amount: groupInputTransfer.transfer.amount,
+          },
+          tokenOut: {
+            address: groupOutputTransfer.transfer.tokenAddress,
+            symbol: groupOutputTransfer.transfer.tokenSymbol,
+            name: groupOutputTransfer.transfer.tokenName,
+            logo: groupOutputTransfer.transfer.tokenLogo,
+            decimals: groupOutputTransfer.transfer.decimals,
+            amount: groupOutputTransfer.transfer.amount,
+          },
+          sender: user,
+          recipient: group[group.length - 1].recipient.toLowerCase() || user,
+          hops,
+        };
+
+        return {
+          operation: mediatedOp,
+          transferIndices: claimedIndices,
+          nativeToConsume: [],
+        };
+      }
+    }
+  }
+
   if (!tokenIn || !tokenOut) return null;
 
   const operation: UniswapSwapOperation = {

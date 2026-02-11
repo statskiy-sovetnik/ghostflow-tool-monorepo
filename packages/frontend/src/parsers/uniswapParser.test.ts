@@ -20,6 +20,7 @@ import { parseERC20Transfers, type RawERC20Transfer } from './erc20TransferParse
 import { parseNativeTransfers } from './nativeTransferParser';
 import * as ethToWlfiFixture from './__fixtures__/tx-eth-to-wlfi-v3-universal-router';
 import * as ethToTokenV4Fixture from './__fixtures__/tx-eth-to-token-v4-universal-router';
+import * as mtkToEthV2Fixture from './__fixtures__/tx-mtk-to-eth-v2-router02';
 
 const USER = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const USDC = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
@@ -679,6 +680,76 @@ describe('detectUniswapSwaps', () => {
 
       // Native transfers consumed (user → router ETH settle)
       expect(result.nativeTransfersToConsume.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('MTK → ETH swap via V2 Router02 (fee-on-transfer token)', () => {
+      const { logs, internal_transactions, FROM_ADDRESS, TO_ADDRESS, VALUE, MTK_ADDRESS, ETH_OUTPUT_AMOUNT } = mtkToEthV2Fixture;
+
+      // Step 1: Parse ERC-20 transfers from raw logs
+      const rawTransfers = parseERC20Transfers(logs);
+      expect(rawTransfers).toHaveLength(3); // user→pair MTK, user→fee MTK, pair→router WETH
+
+      // Step 2: Enrich raw transfers with hardcoded metadata (no API calls in tests)
+      const tokenMetadata: Record<string, { name: string; symbol: string; decimals: number; logo: string | null }> = {
+        [MTK_ADDRESS]: { name: 'Markhor', symbol: 'MTK', decimals: 9, logo: null },
+        '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': { name: 'Wrapped Ether', symbol: 'WETH', decimals: 18, logo: null },
+      };
+
+      const transfers: TokenTransfer[] = rawTransfers.map((raw) => {
+        const meta = tokenMetadata[raw.tokenAddress.toLowerCase()] ?? {
+          name: 'Unknown',
+          symbol: '???',
+          decimals: 18,
+          logo: null,
+        };
+        return {
+          from: raw.from,
+          to: raw.to,
+          tokenAddress: raw.tokenAddress,
+          tokenName: meta.name,
+          tokenSymbol: meta.symbol,
+          tokenLogo: meta.logo,
+          amount: raw.value,
+          decimals: meta.decimals,
+          logIndex: raw.logIndex,
+        };
+      });
+
+      // Step 3: Parse native ETH transfers
+      const erc20MaxLogIndex = Math.max(...transfers.map((t) => t.logIndex));
+      const nativeTransfers = parseNativeTransfers(
+        internal_transactions,
+        VALUE,
+        FROM_ADDRESS,
+        TO_ADDRESS,
+        erc20MaxLogIndex + 1,
+      );
+
+      // Step 4: Detect Uniswap swaps
+      const result = detectUniswapSwaps(logs, transfers, nativeTransfers, FROM_ADDRESS);
+
+      // Assertions
+      expect(result.operations).toHaveLength(1);
+
+      const op = result.operations[0];
+      expect(op.type).toBe('uniswap-swap');
+      expect(op.version).toBe('v2');
+      expect(op.hops).toBe(1);
+
+      // Input: MTK token (NOT native ETH)
+      expect(op.tokenIn.symbol).toBe('MTK');
+      expect(op.tokenIn.isNative).toBeFalsy();
+
+      // Output: native ETH (router unwrapped WETH)
+      expect(op.tokenOut.isNative).toBe(true);
+      expect(op.tokenOut.symbol).toBe('ETH');
+      expect(op.tokenOut.amount).toBe(ETH_OUTPUT_AMOUNT);
+
+      // Native transfers consumed (Router02 → user ETH delivery)
+      expect(result.nativeTransfersToConsume.length).toBeGreaterThanOrEqual(1);
+
+      // Only user→pair MTK + pair→router WETH consumed (2); fee transfer NOT consumed
+      expect(result.transferIndicesToRemove).toHaveLength(2);
     });
   });
 });
