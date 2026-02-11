@@ -1,7 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { fetchTokenTransfers } from './services/moralis';
 import { useContractName } from './hooks/useContractName';
-import type { TokenTransfer, TransactionResult, AaveSupplyOperation, AaveBorrowOperation, AaveRepayOperation, AaveWithdrawOperation, NativeTransfer, FlowItem } from './types/moralis';
+import type { TokenTransfer, TransactionResult, AaveSupplyOperation, AaveBorrowOperation, AaveRepayOperation, AaveWithdrawOperation, UniswapSwapOperation, NativeTransfer, FlowItem } from './types/moralis';
 
 type ResultState =
   | { type: 'idle' }
@@ -226,6 +226,38 @@ function AaveWithdrawItem({ operation }: { operation: AaveWithdrawOperation }) {
   );
 }
 
+function UniswapSwapItem({ operation }: { operation: UniswapSwapOperation }) {
+  const amountIn = formatTransferAmount(operation.tokenIn.amount, operation.tokenIn.decimals);
+  const amountOut = formatTransferAmount(operation.tokenOut.amount, operation.tokenOut.decimals);
+  const symbolIn = truncateString(operation.tokenIn.symbol, 8);
+  const symbolOut = truncateString(operation.tokenOut.symbol, 8);
+
+  return (
+    <li className="operation-item uniswap-swap">
+      <span className="operation-type uniswap-swap-badge">Uniswap Swap</span>{' '}
+      <span className="uniswap-version-badge">{operation.version.toUpperCase()}</span>{' '}
+      <span className="transfer-amount">{amountIn}</span>{' '}
+      <span className="transfer-token">
+        {!operation.tokenIn.isNative && operation.tokenIn.logo && (
+          <img src={operation.tokenIn.logo} alt="" className="token-logo" />
+        )}
+        {symbolIn}
+      </span>{' '}
+      <span className="uniswap-arrow">&rarr;</span>{' '}
+      <span className="transfer-amount">{amountOut}</span>{' '}
+      <span className="transfer-token">
+        {!operation.tokenOut.isNative && operation.tokenOut.logo && (
+          <img src={operation.tokenOut.logo} alt="" className="token-logo" />
+        )}
+        {symbolOut}
+      </span>
+      {operation.hops > 1 && (
+        <span className="uniswap-hops"> ({operation.hops} hops)</span>
+      )}
+    </li>
+  );
+}
+
 function NativeTransferItem({ transfer }: { transfer: NativeTransfer }) {
   const amount = formatTransferAmount(transfer.amount, 18);
 
@@ -266,6 +298,9 @@ function TokenFlow({ flow }: { flow: FlowItem[] }) {
             }
             if (item.data.type === 'aave-withdraw') {
               return <AaveWithdrawItem key={index} operation={item.data as AaveWithdrawOperation} />;
+            }
+            if (item.data.type === 'uniswap-swap') {
+              return <UniswapSwapItem key={index} operation={item.data as UniswapSwapOperation} />;
             }
             return null;
           }

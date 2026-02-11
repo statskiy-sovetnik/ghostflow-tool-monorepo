@@ -60,3 +60,22 @@ The following Aave operations are recognized and attributed, and displayed
 in a unique way, rather than individual transfers:
 
 1. Supply collateral
+2. Withdraw collateral
+3. Borrow
+4. Repay
+
+### Uniswap V3
+We parse Uniswap V3 swaps and display them as a defi operation. There are a few cases to consider:
+
+- Single swaps directly between a Uniswap V3 pool and a user. The pool will first transfer tokens to the user, and then trigger the UniswapV3Callback on the caller, and expect tokens in return. In this case these is always transfer pool->user and possibly more than one user->pool transfers. Uni V3 pools are non-payable, meaning they can't have native ETH as one of the tokens, so there are no ETH edge cases to handle.
+- Single swaps via one of the basic routers: SwapRouter, SwapRouter02. Check out deployments: https://docs.uniswap.org/contracts/v3/reference/deployments/ethereum-deployments. In this case there are ALWAYS two swaps: pool->user followed by user->pool. Keep in mind that there are no transfers with the router itself.
+- Single swap using Universal Router: in this case there are multiple swaps: (1) Uni V3 pool -> Universal Router (2) user -> Uni V3 pool 
+- In case of routers, there are ETH edge cases, when a router can wrap or unwrap WETH, so there will be an extra transfer between the router and WETH contract. The native Eth transfers that are associated with these operations are identified and included in the final swap display, meaning they won't be shown as standalone ETH transfers.
+- 
+
+### Uniswap V2
+- Single swap using Universal Router. In this case only two transfers: (1) user -> Uni V2 pool. (2) Uni V2 pool -> user. So the transfer pattern looks the same as swapping through the pool directly.
+
+### Uniswap V4
+`PoolManager`, Universal Router.
+- Single swap using Universal Router. In this case only two transfers: (1) Pool Manager -> user (2) user -> Pool Manager. So the transfer pattern looks the same as swapping through the pool manager directly.

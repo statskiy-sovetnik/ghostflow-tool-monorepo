@@ -112,6 +112,32 @@ export interface AaveWithdrawOperation extends DeFiOperation {
   to: string | null;
 }
 
+export interface UniswapSwapToken {
+  address: string;
+  symbol: string;
+  name: string;
+  logo: string | null;
+  decimals: number;
+  amount: string;
+  isNative?: boolean;
+}
+
+export interface UniswapSwapOperation extends DeFiOperation {
+  type: 'uniswap-swap';
+  version: 'v2' | 'v3' | 'v4';
+  tokenIn: UniswapSwapToken;
+  tokenOut: UniswapSwapToken;
+  sender: string;
+  recipient: string;
+  hops: number;
+}
+
+export interface UniswapSwapResult {
+  operations: UniswapSwapOperation[];
+  transferIndicesToRemove: number[];
+  nativeTransfersToConsume: Array<{ from: string; to: string; value: string }>;
+}
+
 export interface TokenMetadata {
   address: string;
   name: string;

@@ -2,6 +2,7 @@ import Moralis from 'moralis';
 import type { MoralisTransactionLog, MoralisInternalTransaction, TransactionResult, TokenTransfer, FlowItem } from '../types/moralis';
 import { parseERC20Transfers } from '../parsers/erc20TransferParser';
 import { detectAaveSupplies, detectAaveBorrows, detectAaveRepays, detectAaveWithdraws } from '../parsers/aaveV3Parser';
+import { detectUniswapSwaps } from '../parsers/uniswapParser';
 import { parseNativeTransfers } from '../parsers/nativeTransferParser';
 import { fetchTokenMetadataBatch } from './tokenMetadata';
 
@@ -43,7 +44,8 @@ export async function fetchTokenTransfers(
     return null;
   }
 
-  const json = response.toJSON();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const json = response.toJSON() as any;
   const logs = json.logs as MoralisTransactionLog[];
 
   // Parse raw ERC-20 transfers from logs
@@ -76,68 +78,88 @@ export async function fetchTokenTransfers(
 
     // Detect DeFi operations
     const indicesToRemove = new Set<number>();
+    const operationItems: FlowItem[] = [];
 
+    // Aave operations
     const aaveSupplies = detectAaveSupplies(logs, transfers);
     const aaveBorrows = detectAaveBorrows(logs, transfers);
     const aaveRepays = detectAaveRepays(logs, transfers);
     const aaveWithdraws = detectAaveWithdraws(logs, transfers);
-    const operationItems: FlowItem[] = [];
-    for (const supply of aaveSupplies) {
-      operationItems.push({ kind: 'operation', data: supply.operation });
-      for (const idx of supply.transferIndicesToRemove) {
+    for (const result of [...aaveSupplies, ...aaveBorrows, ...aaveRepays, ...aaveWithdraws]) {
+      operationItems.push({ kind: 'operation', data: result.operation });
+      for (const idx of result.transferIndicesToRemove) {
         indicesToRemove.add(idx);
       }
     }
-    for (const borrow of aaveBorrows) {
-      operationItems.push({ kind: 'operation', data: borrow.operation });
-      for (const idx of borrow.transferIndicesToRemove) {
-        indicesToRemove.add(idx);
-      }
+
+    // Parse native ETH transfers early so Uniswap parser can reference them
+    const internalTxs = (json.internal_transactions ?? []) as MoralisInternalTransaction[];
+    const erc20MaxLogIndex = transfers.length > 0
+      ? Math.max(...transfers.map((t) => t.logIndex))
+      : -1;
+    const allNativeTransfers = parseNativeTransfers(
+      internalTxs,
+      json.value as string,
+      json.from_address as string,
+      json.to_address as string,
+      erc20MaxLogIndex + 1,
+    );
+
+    // Uniswap swaps
+    const uniswapResult = detectUniswapSwaps(
+      logs,
+      transfers,
+      allNativeTransfers,
+      json.from_address as string,
+    );
+    for (const op of uniswapResult.operations) {
+      operationItems.push({ kind: 'operation', data: op });
     }
-    for (const repay of aaveRepays) {
-      operationItems.push({ kind: 'operation', data: repay.operation });
-      for (const idx of repay.transferIndicesToRemove) {
-        indicesToRemove.add(idx);
-      }
+    for (const idx of uniswapResult.transferIndicesToRemove) {
+      indicesToRemove.add(idx);
     }
-    for (const withdraw of aaveWithdraws) {
-      operationItems.push({ kind: 'operation', data: withdraw.operation });
-      for (const idx of withdraw.transferIndicesToRemove) {
-        indicesToRemove.add(idx);
-      }
-    }
+
+    // Filter consumed native transfers
+    const nativeTransfersToConsume = uniswapResult.nativeTransfersToConsume;
+    const filteredNativeTransfers = allNativeTransfers.filter((nt) => {
+      return !nativeTransfersToConsume.some(
+        (c) =>
+          c.from.toLowerCase() === nt.from.toLowerCase() &&
+          c.to.toLowerCase() === nt.to.toLowerCase() &&
+          c.value === nt.amount,
+      );
+    });
 
     const transferItems: FlowItem[] = transfers
       .filter((_, i) => !indicesToRemove.has(i))
       .map((t) => ({ kind: 'transfer' as const, data: t }));
 
-    flow = [...transferItems, ...operationItems].sort(
+    const nativeItems: FlowItem[] = filteredNativeTransfers.map((nt) => ({
+      kind: 'native-transfer' as const,
+      data: nt,
+    }));
+
+    flow = [...transferItems, ...operationItems, ...nativeItems].sort(
       (a, b) => a.data.logIndex - b.data.logIndex,
     );
+  } else {
+    // No ERC-20 transfers, but still parse native transfers
+    const internalTxs = (json.internal_transactions ?? []) as MoralisInternalTransaction[];
+    const allNativeTransfers = parseNativeTransfers(
+      internalTxs,
+      json.value as string,
+      json.from_address as string,
+      json.to_address as string,
+      0,
+    );
+
+    const nativeItems: FlowItem[] = allNativeTransfers.map((nt) => ({
+      kind: 'native-transfer' as const,
+      data: nt,
+    }));
+
+    flow = nativeItems;
   }
-
-  // Parse native ETH transfers (top-level + internal)
-  const internalTxs = (json.internal_transactions ?? []) as MoralisInternalTransaction[];
-  const maxLogIndex = flow.length > 0
-    ? Math.max(...flow.map((item) => item.data.logIndex))
-    : -1;
-
-  const nativeTransfers = parseNativeTransfers(
-    internalTxs,
-    json.value as string,
-    json.from_address as string,
-    json.to_address as string,
-    maxLogIndex + 1,
-  );
-
-  const nativeItems: FlowItem[] = nativeTransfers.map((nt) => ({
-    kind: 'native-transfer' as const,
-    data: nt,
-  }));
-
-  flow = [...flow, ...nativeItems].sort(
-    (a, b) => a.data.logIndex - b.data.logIndex,
-  );
 
   return {
     txHash: transactionHash,
