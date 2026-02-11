@@ -19,6 +19,7 @@ import type { MoralisTransactionLog, TokenTransfer, NativeTransfer, MoralisInter
 import { parseERC20Transfers, type RawERC20Transfer } from './erc20TransferParser';
 import { parseNativeTransfers } from './nativeTransferParser';
 import * as ethToWlfiFixture from './__fixtures__/tx-eth-to-wlfi-v3-universal-router';
+import * as ethToTokenV4Fixture from './__fixtures__/tx-eth-to-token-v4-universal-router';
 
 const USER = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const USDC = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
@@ -608,6 +609,76 @@ describe('detectUniswapSwaps', () => {
       // Native transfer consumed (ETH wrap from user → Universal Router)
       expect(result.nativeTransfersToConsume).toHaveLength(1);
       expect(result.nativeTransfersToConsume[0].from.toLowerCase()).toBe(FROM_ADDRESS);
+    });
+
+    it('ETH → token swap via Universal Router + V4 PoolManager', () => {
+      const { logs, internal_transactions, FROM_ADDRESS, TO_ADDRESS, VALUE, OUTPUT_TOKEN_ADDRESS, OUTPUT_AMOUNT } = ethToTokenV4Fixture;
+
+      // Step 1: Parse ERC-20 transfers from raw logs
+      const rawTransfers = parseERC20Transfers(logs);
+      expect(rawTransfers).toHaveLength(1); // Only PoolManager → user transfer
+
+      // Step 2: Enrich raw transfers with hardcoded metadata (no API calls in tests)
+      const tokenMetadata: Record<string, { name: string; symbol: string; decimals: number; logo: string | null }> = {
+        [OUTPUT_TOKEN_ADDRESS]: { name: 'Output Token', symbol: 'OUT', decimals: 18, logo: null },
+      };
+
+      const transfers: TokenTransfer[] = rawTransfers.map((raw) => {
+        const meta = tokenMetadata[raw.tokenAddress.toLowerCase()] ?? {
+          name: 'Unknown',
+          symbol: '???',
+          decimals: 18,
+          logo: null,
+        };
+        return {
+          from: raw.from,
+          to: raw.to,
+          tokenAddress: raw.tokenAddress,
+          tokenName: meta.name,
+          tokenSymbol: meta.symbol,
+          tokenLogo: meta.logo,
+          amount: raw.value,
+          decimals: meta.decimals,
+          logIndex: raw.logIndex,
+        };
+      });
+
+      // Step 3: Parse native ETH transfers
+      const erc20MaxLogIndex = Math.max(...transfers.map((t) => t.logIndex));
+      const nativeTransfers = parseNativeTransfers(
+        internal_transactions,
+        VALUE,
+        FROM_ADDRESS,
+        TO_ADDRESS,
+        erc20MaxLogIndex + 1,
+      );
+
+      // Step 4: Detect Uniswap swaps
+      const result = detectUniswapSwaps(logs, transfers, nativeTransfers, FROM_ADDRESS);
+
+      // Assertions
+      expect(result.operations).toHaveLength(1);
+
+      const op = result.operations[0];
+      expect(op.type).toBe('uniswap-swap');
+      expect(op.version).toBe('v4');
+      expect(op.hops).toBe(1);
+
+      // Input: pure native ETH (no WETH wrap)
+      expect(op.tokenIn.isNative).toBe(true);
+      expect(op.tokenIn.symbol).toBe('ETH');
+      expect(op.tokenIn.name).toBe('Ether');
+      expect(op.tokenIn.amount).toBe(VALUE);
+
+      // Output: token from PoolManager
+      expect(op.tokenOut.address.toLowerCase()).toBe(OUTPUT_TOKEN_ADDRESS);
+      expect(op.tokenOut.amount).toBe(OUTPUT_AMOUNT);
+
+      // Transfer indices consumed (the single PoolManager → user transfer)
+      expect(result.transferIndicesToRemove).toHaveLength(1);
+
+      // Native transfers consumed (user → router ETH settle)
+      expect(result.nativeTransfersToConsume.length).toBeGreaterThanOrEqual(1);
     });
   });
 });

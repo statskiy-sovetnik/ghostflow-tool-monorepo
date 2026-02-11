@@ -304,6 +304,17 @@ function buildSwapOperation(
     }
   }
 
+  // Final fallback: pure native ETH input (e.g. V4 settles ETH directly, no WETH transfer)
+  let pureNativeInput: NativeTransfer | undefined;
+  if (!inputTransfer) {
+    const nativeIn = nativeTransfers.find(
+      (nt) => nt.from.toLowerCase() === txFromLower && participants.has(nt.to.toLowerCase()),
+    );
+    if (nativeIn) {
+      pureNativeInput = nativeIn;
+    }
+  }
+
   // Determine user output: transfer where to === txFrom AND from is a participant
   const lastSwapEvent = group[group.length - 1];
   let outputTransfer = matchedTransfers.find(
@@ -317,7 +328,7 @@ function buildSwapOperation(
     );
   }
 
-  if (!inputTransfer && !outputTransfer) return null;
+  if (!inputTransfer && !pureNativeInput && !outputTransfer) return null;
 
   // Handle native ETH edge cases
   const nativeToConsume: Array<{ from: string; to: string; value: string }> = [];
@@ -339,6 +350,13 @@ function buildSwapOperation(
     }
   }
 
+  // Pure native ETH input (no WETH transfer at all)
+  if (pureNativeInput) {
+    inputIsNative = true;
+    nativeInputAmount = pureNativeInput.amount;
+    nativeToConsume.push({ from: pureNativeInput.from, to: pureNativeInput.to, value: pureNativeInput.amount });
+  }
+
   // Check if output involves WETH → might be native ETH unwrap
   if (outputTransfer && outputTransfer.transfer.tokenAddress.toLowerCase() === WETH_ADDRESS) {
     // Look for native transfer from a router/participant to user
@@ -356,17 +374,27 @@ function buildSwapOperation(
   const version = group[0].version;
   const hops = group.length;
 
-  const tokenIn = inputTransfer
+  const tokenIn = pureNativeInput
     ? {
-        address: inputTransfer.transfer.tokenAddress,
-        symbol: inputIsNative ? 'ETH' : inputTransfer.transfer.tokenSymbol,
-        name: inputIsNative ? 'Ether' : inputTransfer.transfer.tokenName,
-        logo: inputIsNative ? null : inputTransfer.transfer.tokenLogo,
-        decimals: inputTransfer.transfer.decimals,
-        amount: inputIsNative && nativeInputAmount ? nativeInputAmount : inputTransfer.transfer.amount,
-        isNative: inputIsNative || undefined,
+        address: WETH_ADDRESS,
+        symbol: 'ETH',
+        name: 'Ether',
+        logo: null,
+        decimals: 18,
+        amount: pureNativeInput.amount,
+        isNative: true as const,
       }
-    : null;
+    : inputTransfer
+      ? {
+          address: inputTransfer.transfer.tokenAddress,
+          symbol: inputIsNative ? 'ETH' : inputTransfer.transfer.tokenSymbol,
+          name: inputIsNative ? 'Ether' : inputTransfer.transfer.tokenName,
+          logo: inputIsNative ? null : inputTransfer.transfer.tokenLogo,
+          decimals: inputTransfer.transfer.decimals,
+          amount: inputIsNative && nativeInputAmount ? nativeInputAmount : inputTransfer.transfer.amount,
+          isNative: inputIsNative || undefined,
+        }
+      : null;
 
   const tokenOut = outputTransfer
     ? {
