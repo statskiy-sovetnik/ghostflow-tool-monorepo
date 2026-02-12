@@ -1,7 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { fetchTokenTransfers } from './services/moralis';
 import { useContractName } from './hooks/useContractName';
-import type { TokenTransfer, TransactionResult, AaveSupplyOperation, AaveBorrowOperation, AaveRepayOperation, AaveWithdrawOperation, UniswapSwapOperation, NativeTransfer, FlowItem } from './types/moralis';
+import type { TokenTransfer, TransactionResult, AaveSupplyOperation, AaveBorrowOperation, AaveRepayOperation, AaveWithdrawOperation, UniswapSwapOperation, UniswapAddLiquidityOperation, UniswapRemoveLiquidityOperation, UniswapCollectFeesOperation, NativeTransfer, FlowItem } from './types/moralis';
 
 type ResultState =
   | { type: 'idle' }
@@ -270,6 +270,70 @@ function UniswapSwapItem({ operation }: { operation: UniswapSwapOperation }) {
   );
 }
 
+function UniswapLiquidityTokenDisplay({ token }: { token: { symbol: string; name: string; logo: string | null; amount: string; decimals: number; isNative?: boolean } }) {
+  if (token.amount === '0') return null;
+  const amount = formatTransferAmount(token.amount, token.decimals);
+  const symbol = truncateString(token.symbol, 8);
+  return (
+    <>
+      <span className="transfer-amount">{amount}</span>{' '}
+      <span className="transfer-token">
+        {!token.isNative && token.logo && (
+          <img src={token.logo} alt="" className="token-logo" />
+        )}
+        {symbol}
+      </span>
+    </>
+  );
+}
+
+function UniswapAddLiquidityItem({ operation }: { operation: UniswapAddLiquidityOperation }) {
+  const hasToken0 = operation.token0.amount !== '0';
+  const hasToken1 = operation.token1.amount !== '0';
+
+  return (
+    <li className="operation-item uniswap-add-liquidity">
+      <span className="operation-type uniswap-add-liquidity-badge">Uniswap Add Liquidity</span>{' '}
+      <span className="uniswap-version-badge">{operation.version.toUpperCase()}</span>{' '}
+      by <AddressLabel address={operation.provider} />{' '}
+      {hasToken0 && <UniswapLiquidityTokenDisplay token={operation.token0} />}
+      {hasToken0 && hasToken1 && <>{' '}+{' '}</>}
+      {hasToken1 && <UniswapLiquidityTokenDisplay token={operation.token1} />}
+    </li>
+  );
+}
+
+function UniswapRemoveLiquidityItem({ operation }: { operation: UniswapRemoveLiquidityOperation }) {
+  const hasToken0 = operation.token0.amount !== '0';
+  const hasToken1 = operation.token1.amount !== '0';
+
+  return (
+    <li className="operation-item uniswap-remove-liquidity">
+      <span className="operation-type uniswap-remove-liquidity-badge">Uniswap Remove Liquidity</span>{' '}
+      <span className="uniswap-version-badge">{operation.version.toUpperCase()}</span>{' '}
+      to <AddressLabel address={operation.recipient} />{' '}
+      {hasToken0 && <UniswapLiquidityTokenDisplay token={operation.token0} />}
+      {hasToken0 && hasToken1 && <>{' '}+{' '}</>}
+      {hasToken1 && <UniswapLiquidityTokenDisplay token={operation.token1} />}
+    </li>
+  );
+}
+
+function UniswapCollectFeesItem({ operation }: { operation: UniswapCollectFeesOperation }) {
+  const hasToken0 = operation.token0.amount !== '0';
+  const hasToken1 = operation.token1.amount !== '0';
+
+  return (
+    <li className="operation-item uniswap-collect-fees">
+      <span className="operation-type uniswap-collect-fees-badge">Uniswap Collect Fees</span>{' '}
+      by <AddressLabel address={operation.collector} />{' '}
+      {hasToken0 && <UniswapLiquidityTokenDisplay token={operation.token0} />}
+      {hasToken0 && hasToken1 && <>{' '}+{' '}</>}
+      {hasToken1 && <UniswapLiquidityTokenDisplay token={operation.token1} />}
+    </li>
+  );
+}
+
 function NativeTransferItem({ transfer }: { transfer: NativeTransfer }) {
   const amount = formatTransferAmount(transfer.amount, 18);
 
@@ -313,6 +377,15 @@ function TokenFlow({ flow }: { flow: FlowItem[] }) {
             }
             if (item.data.type === 'uniswap-swap') {
               return <UniswapSwapItem key={index} operation={item.data as UniswapSwapOperation} />;
+            }
+            if (item.data.type === 'uniswap-add-liquidity') {
+              return <UniswapAddLiquidityItem key={index} operation={item.data as UniswapAddLiquidityOperation} />;
+            }
+            if (item.data.type === 'uniswap-remove-liquidity') {
+              return <UniswapRemoveLiquidityItem key={index} operation={item.data as UniswapRemoveLiquidityOperation} />;
+            }
+            if (item.data.type === 'uniswap-collect-fees') {
+              return <UniswapCollectFeesItem key={index} operation={item.data as UniswapCollectFeesOperation} />;
             }
             return null;
           }

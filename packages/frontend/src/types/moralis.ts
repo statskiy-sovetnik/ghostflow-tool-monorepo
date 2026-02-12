@@ -138,6 +138,46 @@ export interface UniswapSwapResult {
   nativeTransfersToConsume: Array<{ from: string; to: string; value: string }>;
 }
 
+export interface UniswapLiquidityToken {
+  address: string;
+  symbol: string;
+  name: string;
+  logo: string | null;
+  decimals: number;
+  amount: string;
+  isNative?: boolean;
+}
+
+export interface UniswapAddLiquidityOperation extends DeFiOperation {
+  type: 'uniswap-add-liquidity';
+  version: 'v2' | 'v3';
+  token0: UniswapLiquidityToken;
+  token1: UniswapLiquidityToken;
+  provider: string;
+}
+
+export interface UniswapRemoveLiquidityOperation extends DeFiOperation {
+  type: 'uniswap-remove-liquidity';
+  version: 'v2' | 'v3';
+  token0: UniswapLiquidityToken;
+  token1: UniswapLiquidityToken;
+  recipient: string;
+}
+
+export interface UniswapCollectFeesOperation extends DeFiOperation {
+  type: 'uniswap-collect-fees';
+  version: 'v3';
+  token0: UniswapLiquidityToken;
+  token1: UniswapLiquidityToken;
+  collector: string;
+}
+
+export interface UniswapLiquidityResult {
+  operations: (UniswapAddLiquidityOperation | UniswapRemoveLiquidityOperation | UniswapCollectFeesOperation)[];
+  transferIndicesToRemove: number[];
+  nativeTransfersToConsume: Array<{ from: string; to: string; value: string }>;
+}
+
 export interface TokenMetadata {
   address: string;
   name: string;

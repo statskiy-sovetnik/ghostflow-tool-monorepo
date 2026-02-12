@@ -3,6 +3,7 @@ import type { MoralisTransactionLog, MoralisInternalTransaction, TransactionResu
 import { parseERC20Transfers } from '../parsers/erc20TransferParser';
 import { detectAaveSupplies, detectAaveBorrows, detectAaveRepays, detectAaveWithdraws } from '../parsers/aaveV3Parser';
 import { detectUniswapSwaps } from '../parsers/uniswapParser';
+import { detectUniswapLiquidity } from '../parsers/uniswapLiquidityParser';
 import { parseNativeTransfers } from '../parsers/nativeTransferParser';
 import { fetchTokenMetadataBatch } from './tokenMetadata';
 
@@ -119,8 +120,20 @@ export async function fetchTokenTransfers(
       indicesToRemove.add(idx);
     }
 
+    // Uniswap liquidity operations
+    const liquidityResult = detectUniswapLiquidity(logs, transfers, allNativeTransfers, json.from_address as string);
+    for (const op of liquidityResult.operations) {
+      operationItems.push({ kind: 'operation', data: op });
+    }
+    for (const idx of liquidityResult.transferIndicesToRemove) {
+      indicesToRemove.add(idx);
+    }
+
     // Filter consumed native transfers
-    const nativeTransfersToConsume = uniswapResult.nativeTransfersToConsume;
+    const nativeTransfersToConsume = [
+      ...uniswapResult.nativeTransfersToConsume,
+      ...liquidityResult.nativeTransfersToConsume,
+    ];
     const filteredNativeTransfers = allNativeTransfers.filter((nt) => {
       return !nativeTransfersToConsume.some(
         (c) =>

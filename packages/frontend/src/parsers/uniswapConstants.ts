@@ -32,5 +32,17 @@ export const UNISWAP_V3_INIT_CODE_HASH = '0xe34f199b19b2b4f47f68442619d555527d24
 
 export const V3_FEE_TIERS = [100, 500, 3000, 10000] as const;
 
+// V3 NonfungiblePositionManager
+export const UNISWAP_V3_NPM = '0xc36442b4a4522e871399cd717abdd847ab11fe88';
+
+// Liquidity event topic0 hashes
+export const V3_INCREASE_LIQUIDITY_TOPIC0 = '0x3067048beee31b25b2f1681f88dac838c8bba36af25bfb2b7cf7473a5847e35f';
+export const V3_DECREASE_LIQUIDITY_TOPIC0 = '0x26f6a048ee9138f2c0ce266f322cb99228e8d619ae2bff30c67f8dcf9d2377b4';
+export const V3_NPM_COLLECT_TOPIC0 = '0x40d0efd1a53d60ecbf40971b9daf7dc90178c3aadc7aab1765632738fa8b8f01';
+export const V3_POOL_MINT_TOPIC0 = '0x7a53080ba414158be7ec69b987b5fb7d07dee101fe85488f0853ae16239d0bde';
+export const V3_POOL_BURN_TOPIC0 = '0x0c396cd989a39f4459b5fa1aed6a9a8dcdbc45908acfd67e028cd568da98982c';
+export const V2_MINT_TOPIC0 = '0x4c209b5fc8ad50758f13e2e1088ba56a560dff690a1c6fef26394f4c03821c4f';
+export const V2_BURN_TOPIC0 = '0xdccd412f0b1252819cb1fd330b93224ca42612892bb3f4f789976e6d81936496';
+
 // Tokens
 export const WETH_ADDRESS = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
