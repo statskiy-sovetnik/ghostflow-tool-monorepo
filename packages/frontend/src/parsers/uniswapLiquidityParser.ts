@@ -418,12 +418,62 @@ function detectV3CollectFees(
     }
 
     const displayTransfers = [npmToUser0, npmToUser1].filter(Boolean) as { index: number; transfer: TokenTransfer }[];
-    if (displayTransfers.length === 0) continue;
 
-    const collector = displayTransfers[0].transfer.to.toLowerCase();
+    // Check for WETH unwrap: pool→NPM has WETH but no NPM→user WETH transfer
+    const displayTokenAddrs = new Set(displayTransfers.map(d => d.transfer.tokenAddress.toLowerCase()));
+    let nativeEthToken: UniswapLiquidityToken | null = null;
 
-    const t0 = displayTransfers[0] ? makeToken(displayTransfers[0].transfer) : makeZeroToken();
-    const t1 = displayTransfers[1] ? makeToken(displayTransfers[1].transfer) : makeZeroToken();
+    for (const ptn of poolToNpm) {
+      if (ptn.transfer.tokenAddress.toLowerCase() === WETH_ADDRESS && !displayTokenAddrs.has(WETH_ADDRESS)) {
+        // WETH was collected but unwrapped — find native ETH transfer NPM → user
+        const collector = displayTransfers.length > 0
+          ? displayTransfers[0].transfer.to.toLowerCase()
+          : txFrom.toLowerCase();
+        const nativeOut = nativeTransfers.find(
+          (nt) => nt.from.toLowerCase() === npmLower && nt.to.toLowerCase() === collector,
+        );
+        if (nativeOut) {
+          nativeEthToken = {
+            address: WETH_ADDRESS,
+            symbol: 'ETH',
+            name: 'Ether',
+            logo: null,
+            decimals: 18,
+            amount: nativeOut.amount,
+            isNative: true,
+          };
+          nativeToConsume.push({ from: nativeOut.from, to: nativeOut.to, value: nativeOut.amount });
+          // Also consume WETH9 → NPM native transfer
+          const wethToNpm = nativeTransfers.find(
+            (nt) => nt.to.toLowerCase() === npmLower && nt.amount === nativeOut.amount,
+          );
+          if (wethToNpm) {
+            nativeToConsume.push({ from: wethToNpm.from, to: wethToNpm.to, value: wethToNpm.amount });
+          }
+        }
+      }
+    }
+
+    if (displayTransfers.length === 0 && !nativeEthToken) continue;
+
+    const collector = displayTransfers.length > 0
+      ? displayTransfers[0].transfer.to.toLowerCase()
+      : txFrom.toLowerCase();
+
+    // Check existing displayTransfers for WETH unwrap (like remove liquidity does)
+    let token0IsNative = false;
+    if (displayTransfers[0]?.transfer.tokenAddress.toLowerCase() === WETH_ADDRESS) {
+      const nativeOut = nativeTransfers.find(
+        (nt) => nt.from.toLowerCase() === npmLower && nt.to.toLowerCase() === collector,
+      );
+      if (nativeOut) {
+        token0IsNative = true;
+        nativeToConsume.push({ from: nativeOut.from, to: nativeOut.to, value: nativeOut.amount });
+      }
+    }
+
+    const t0 = displayTransfers[0] ? makeToken(displayTransfers[0].transfer, token0IsNative) : (nativeEthToken ?? makeZeroToken());
+    const t1 = displayTransfers[1] ? makeToken(displayTransfers[1].transfer) : (nativeEthToken && displayTransfers[0] ? nativeEthToken : makeZeroToken());
 
     operations.push({
       type: 'uniswap-collect-fees',

@@ -351,6 +351,92 @@ describe('detectUniswapLiquidity', () => {
       expect(result.transferIndicesToRemove).toHaveLength(2);
     });
 
+    it('detects V3 collect fees with WETH unwrap (USDC + ETH)', () => {
+      const poolAddress = computeV3PoolAddress(USDC, WETH_ADDRESS, 500);
+      const WETH9 = WETH_ADDRESS;
+
+      const logs: MoralisTransactionLog[] = [
+        // Pool Collect (pool-level)
+        makeLog({
+          address: poolAddress,
+          topic0: '0x70935338e69775456a85ddef226c395fb668b63fa0115f5f20610b388e6ca9c0',
+          log_index: '699',
+        }),
+        // NPM Collect (anchor)
+        makeLog({
+          address: UNISWAP_V3_NPM,
+          topic0: V3_NPM_COLLECT_TOPIC0,
+          topic1: TOKEN_ID_2,
+          log_index: '700',
+        }),
+      ];
+
+      const transfers: TokenTransfer[] = [
+        // pool → NPM (USDC)
+        makeTransfer({
+          from: poolAddress,
+          to: UNISWAP_V3_NPM,
+          tokenAddress: USDC,
+          tokenName: 'USD Coin',
+          tokenSymbol: 'USDC',
+          amount: '59839',
+          decimals: 6,
+          logIndex: 697,
+        }),
+        // pool → NPM (WETH) — ERC-20 transfer
+        makeTransfer({
+          from: poolAddress,
+          to: UNISWAP_V3_NPM,
+          tokenAddress: WETH9,
+          tokenName: 'Wrapped Ether',
+          tokenSymbol: 'WETH',
+          amount: '30000000000000',
+          decimals: 18,
+          logIndex: 698,
+        }),
+        // NPM → user (USDC) — ERC-20 transfer
+        makeTransfer({
+          from: UNISWAP_V3_NPM,
+          to: USER,
+          tokenAddress: USDC,
+          tokenName: 'USD Coin',
+          tokenSymbol: 'USDC',
+          amount: '59839',
+          decimals: 6,
+          logIndex: 702,
+        }),
+        // NOTE: No NPM → user WETH ERC-20 transfer — it was unwrapped
+      ];
+
+      const nativeTransfers: NativeTransfer[] = [
+        // WETH9 → NPM (unwrap)
+        { from: WETH9, to: UNISWAP_V3_NPM, amount: '30000000000000' },
+        // NPM → user (native ETH)
+        { from: UNISWAP_V3_NPM, to: USER, amount: '30000000000000' },
+      ];
+
+      const result = detectUniswapLiquidity(logs, transfers, nativeTransfers, USER);
+
+      expect(result.operations).toHaveLength(1);
+      const op = result.operations[0];
+      expect(op.type).toBe('uniswap-collect-fees');
+      if (op.type === 'uniswap-collect-fees') {
+        expect(op.version).toBe('v3');
+        expect(op.collector).toBe(USER);
+        // Should have both USDC and ETH (native)
+        const symbols = [op.token0.symbol, op.token1.symbol].sort();
+        expect(symbols).toEqual(['ETH', 'USDC']);
+        // The ETH token should be marked native
+        const ethToken = op.token0.symbol === 'ETH' ? op.token0 : op.token1;
+        expect(ethToken.isNative).toBe(true);
+        expect(ethToken.amount).toBe('30000000000000');
+      }
+      // All 3 ERC-20 transfers consumed (pool→NPM USDC, pool→NPM WETH, NPM→user USDC)
+      expect(result.transferIndicesToRemove).toHaveLength(3);
+      // Both native transfers consumed
+      expect(result.nativeTransfersToConsume).toHaveLength(2);
+    });
+
     it('does NOT detect collect fees when paired with DecreaseLiquidity (same tokenId)', () => {
       const poolAddress = computeV3PoolAddress(USDC, DAI, 500);
 
