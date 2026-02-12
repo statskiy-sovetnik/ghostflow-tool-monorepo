@@ -12,19 +12,25 @@ type ResultState =
 const TX_HASH_REGEX = /^0x[a-fA-F0-9]{64}$/;
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
+function addThousandsSeparators(numStr: string): string {
+  return numStr.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
 export function formatTransferAmount(amount: string, decimals: number): string {
   const divisor = BigInt(10 ** decimals);
   const raw = BigInt(amount);
   const whole = raw / divisor;
   const remainder = raw % divisor;
 
+  const wholeFormatted = addThousandsSeparators(whole.toString());
+
   if (remainder === 0n) {
-    return whole.toString();
+    return wholeFormatted;
   }
 
   const decimalPart = remainder.toString().padStart(decimals, '0');
   const trimmed = decimalPart.replace(/0+$/, '');
-  return `${whole}.${trimmed}`;
+  return `${wholeFormatted}.${trimmed}`;
 }
 
 export function truncateAddress(address: string): string {

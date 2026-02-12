@@ -296,6 +296,72 @@ describe('parseERC20Transfers', () => {
     expect(result[0].tokenAddress).toBe('0xValidToken');
   });
 
+  describe('ERC-721 filtering', () => {
+    it('filters out ERC-721 Transfer with decoded_event', () => {
+      const logs: MoralisTransactionLog[] = [
+        createLog({
+          address: '0xNFTContract',
+          decoded_event: {
+            label: 'Transfer',
+            signature: ERC20_TRANSFER_SIGNATURE,
+            type: 'event',
+            params: [
+              { name: 'from', type: 'address', value: '0xFrom' },
+              { name: 'to', type: 'address', value: '0xTo' },
+              { name: 'tokenId', type: 'uint256', value: '42' },
+            ],
+          },
+          topic0: ERC20_TRANSFER_TOPIC0,
+          topic1: '0x000000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          topic2: '0x000000000000000000000000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          topic3: '0x000000000000000000000000000000000000000000000000000000000000002a',
+          data: '0x',
+        }),
+      ];
+
+      const result = parseERC20Transfers(logs);
+
+      expect(result).toHaveLength(0);
+    });
+
+    it('filters out ERC-721 Transfer with raw log (no decoded_event)', () => {
+      const logs: MoralisTransactionLog[] = [
+        createLog({
+          address: '0xNFTContract',
+          decoded_event: null,
+          topic0: ERC20_TRANSFER_TOPIC0,
+          topic1: '0x000000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          topic2: '0x000000000000000000000000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          topic3: '0x0000000000000000000000000000000000000000000000000000000000000001',
+          data: '0x',
+        }),
+      ];
+
+      const result = parseERC20Transfers(logs);
+
+      expect(result).toHaveLength(0);
+    });
+
+    it('does not filter ERC-20 Transfer (no topic3)', () => {
+      const logs: MoralisTransactionLog[] = [
+        createLog({
+          address: '0xERC20Token',
+          decoded_event: null,
+          topic0: ERC20_TRANSFER_TOPIC0,
+          topic1: '0x000000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          topic2: '0x000000000000000000000000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          topic3: null,
+          data: '0x0000000000000000000000000000000000000000000000000000000000001000',
+        }),
+      ];
+
+      const result = parseERC20Transfers(logs);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].tokenAddress).toBe('0xERC20Token');
+    });
+  });
+
   describe('raw log fallback parsing', () => {
     it('parses Transfer from raw log when decoded_event is null', () => {
       const logs: MoralisTransactionLog[] = [

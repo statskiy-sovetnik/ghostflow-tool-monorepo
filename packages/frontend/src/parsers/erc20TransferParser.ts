@@ -17,8 +17,16 @@ function extractValueFromData(data: string): string {
   return BigInt(data).toString();
 }
 
+function isERC721Transfer(log: MoralisTransactionLog): boolean {
+  // ERC-721 Transfer has 3 indexed params (from, to, tokenId),
+  // so tokenId appears in topic3 and data is empty.
+  // ERC-20 Transfer has 2 indexed params (from, to) with value in data.
+  return log.topic3 != null;
+}
+
 function parseTransferFromRawLog(log: MoralisTransactionLog): RawERC20Transfer | null {
   if (log.topic0 !== ERC20_TRANSFER_TOPIC0) return null;
+  if (isERC721Transfer(log)) return null;
   if (!log.topic1 || !log.topic2 || !log.data) {
     console.warn('Raw Transfer log missing required fields:', { address: log.address });
     return null;
@@ -51,6 +59,11 @@ export function parseERC20Transfers(logs: MoralisTransactionLog[]): RawERC20Tran
     }
 
     if (log.decoded_event.signature !== ERC20_TRANSFER_SIGNATURE) {
+      continue;
+    }
+
+    // Skip ERC-721 transfers (same signature but tokenId is indexed in topic3)
+    if (isERC721Transfer(log)) {
       continue;
     }
 

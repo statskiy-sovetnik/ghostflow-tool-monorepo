@@ -51,7 +51,7 @@ describe('formatTransferAmount', () => {
 
   it('formats amounts with decimal places', () => {
     expect(formatTransferAmount('1500000000000000000', 18)).toBe('1.5');
-    expect(formatTransferAmount('3250000000', 6)).toBe('3250');
+    expect(formatTransferAmount('3250000000', 6)).toBe('3,250');
   });
 
   it('trims trailing zeros from decimal part', () => {
@@ -60,6 +60,15 @@ describe('formatTransferAmount', () => {
 
   it('handles zero amount', () => {
     expect(formatTransferAmount('0', 18)).toBe('0');
+  });
+
+  it('adds thousands separators to large whole numbers', () => {
+    expect(formatTransferAmount('1000000000000', 6)).toBe('1,000,000');
+    expect(formatTransferAmount('123456789000000000000000000', 18)).toBe('123,456,789');
+  });
+
+  it('adds thousands separators with decimal places', () => {
+    expect(formatTransferAmount('1234567500000', 6)).toBe('1,234,567.5');
   });
 });
 
