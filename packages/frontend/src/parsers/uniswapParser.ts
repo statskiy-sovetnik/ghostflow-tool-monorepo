@@ -490,8 +490,8 @@ function buildSwapOperation(
             decimals: groupOutputTransfer.transfer.decimals,
             amount: groupOutputTransfer.transfer.amount,
           },
-          sender: user,
-          recipient: group[group.length - 1].recipient.toLowerCase() || user,
+          sender: groupInputTransfer.transfer.from.toLowerCase(),
+          recipient: groupOutputTransfer.transfer.to.toLowerCase(),
           hops,
         };
 
@@ -512,8 +512,16 @@ function buildSwapOperation(
     version,
     tokenIn,
     tokenOut,
-    sender: txFromLower,
-    recipient: lastSwapEvent.recipient.toLowerCase() || txFromLower,
+    sender: pureNativeInput
+      ? txFromLower
+      : inputTransfer
+        ? inputTransfer.transfer.from.toLowerCase()
+        : txFromLower,
+    recipient: outputIsNative
+      ? txFromLower
+      : outputTransfer
+        ? outputTransfer.transfer.to.toLowerCase()
+        : txFromLower,
     hops,
   };
 

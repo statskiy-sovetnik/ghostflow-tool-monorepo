@@ -242,6 +242,7 @@ function UniswapSwapItem({ operation }: { operation: UniswapSwapOperation }) {
     <li className="operation-item uniswap-swap">
       <span className="operation-type uniswap-swap-badge">Uniswap Swap</span>{' '}
       <span className="uniswap-version-badge">{operation.version.toUpperCase()}</span>{' '}
+      by <AddressLabel address={operation.sender} />{' '}
       <span className="transfer-amount">{amountIn}</span>{' '}
       <span className="transfer-token">
         {!operation.tokenIn.isNative && operation.tokenIn.logo && (
@@ -257,6 +258,11 @@ function UniswapSwapItem({ operation }: { operation: UniswapSwapOperation }) {
         )}
         {symbolOut}
       </span>
+      {operation.sender !== operation.recipient && (
+        <>
+          {' '}to <AddressLabel address={operation.recipient} />
+        </>
+      )}
       {operation.hops > 1 && (
         <span className="uniswap-hops"> ({operation.hops} hops)</span>
       )}
