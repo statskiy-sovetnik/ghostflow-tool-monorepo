@@ -31,5 +31,8 @@ pnpm-debug.log*
 # Testing
 coverage/
 
+# Vercel
+.vercel
+
 # Submodules / external libs
 lib/
