@@ -15,8 +15,8 @@ import {
   UNISWAP_UNIVERSAL_ROUTER,
   WETH_ADDRESS,
 } from './uniswapConstants';
-import type { MoralisTransactionLog, TokenTransfer, NativeTransfer, MoralisInternalTransaction } from '../types/moralis';
-import { parseERC20Transfers, type RawERC20Transfer } from './erc20TransferParser';
+import type { MoralisTransactionLog, TokenTransfer, NativeTransfer } from '../types/moralis';
+import { parseERC20Transfers } from './erc20TransferParser';
 import { parseNativeTransfers } from './nativeTransferParser';
 import * as ethToWlfiFixture from './__fixtures__/tx-eth-to-wlfi-v3-universal-router';
 import * as ethToTokenV4Fixture from './__fixtures__/tx-eth-to-token-v4-universal-router';

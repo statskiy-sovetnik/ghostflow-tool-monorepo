@@ -487,9 +487,9 @@ describe('detectUniswapLiquidity', () => {
 
       const nativeTransfers: NativeTransfer[] = [
         // WETH9 → NPM (unwrap)
-        { from: WETH9, to: UNISWAP_V3_NPM, amount: '30000000000000' },
+        { from: WETH9, to: UNISWAP_V3_NPM, amount: '30000000000000', logIndex: -1000 },
         // NPM → user (native ETH)
-        { from: UNISWAP_V3_NPM, to: USER, amount: '30000000000000' },
+        { from: UNISWAP_V3_NPM, to: USER, amount: '30000000000000', logIndex: -999 },
       ];
 
       const result = detectUniswapLiquidity(logs, transfers, nativeTransfers, USER);

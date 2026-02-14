@@ -9,7 +9,6 @@ import type {
   UniswapCollectFeesOperation,
   UniswapLiquidityToken,
 } from '../types/moralis';
-import { extractAddressFromTopic } from './utils';
 import {
   UNISWAP_V3_NPM,
   V3_INCREASE_LIQUIDITY_TOPIC0,
@@ -234,7 +233,7 @@ function detectV3RemoveLiquidity(
   logs: MoralisTransactionLog[],
   transfers: TokenTransfer[],
   nativeTransfers: NativeTransfer[],
-  txFrom: string,
+  _txFrom: string,
 ): {
   operations: UniswapRemoveLiquidityOperation[];
   indicesToRemove: number[];
@@ -647,8 +646,6 @@ function detectV2RemoveLiquidity(
     const anchorLogIndex = parseInt(log.log_index);
 
     // The recipient is in topic2
-    const recipient = log.topic2 ? extractAddressFromTopic(log.topic2) : txFrom.toLowerCase();
-
     // Find token transfers FROM the pair after the Burn event
     const pairToUser0 = findClosestTransfer(transfers, anchorLogIndex, 'after',
       (t) => t.from.toLowerCase() === pairAddress && t.to.toLowerCase() !== ZERO_ADDRESS,
