@@ -302,6 +302,67 @@ body {
   text-decoration: underline;
 }
 
+/* Uniswap Swap */
+.operation-item.uniswap-swap {
+  border: 1px solid #fce4ec;
+  border-left: 4px solid #ff007a;
+}
+
+.operation-type.uniswap-swap-badge {
+  background: #ff007a;
+}
+
+.uniswap-version-badge {
+  font-weight: 600;
+  color: #ff007a;
+  background: #fce4ec;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+.uniswap-arrow {
+  font-weight: 700;
+  color: #ff007a;
+  font-size: 1.1rem;
+}
+
+.uniswap-hops {
+  font-size: 0.8rem;
+  color: #999;
+  font-style: italic;
+}
+
+/* Uniswap Add Liquidity */
+.operation-item.uniswap-add-liquidity {
+  border: 1px solid #e8f5e9;
+  border-left: 4px solid #2e7d32;
+}
+
+.operation-type.uniswap-add-liquidity-badge {
+  background: #2e7d32;
+}
+
+/* Uniswap Remove Liquidity */
+.operation-item.uniswap-remove-liquidity {
+  border: 1px solid #fff3e0;
+  border-left: 4px solid #e65100;
+}
+
+.operation-type.uniswap-remove-liquidity-badge {
+  background: #e65100;
+}
+
+/* Uniswap Collect Fees */
+.operation-item.uniswap-collect-fees {
+  border: 1px solid #f3e5f5;
+  border-left: 4px solid #7b1fa2;
+}
+
+.operation-type.uniswap-collect-fees-badge {
+  background: #7b1fa2;
+}
+
 /* Native ETH Transfer */
 .native-transfer-item {
   padding: 12px 16px;

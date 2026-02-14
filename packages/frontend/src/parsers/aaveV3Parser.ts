@@ -9,50 +9,6 @@ export const AAVE_V3_WITHDRAW_TOPIC0 = '0x3115d1449a7b732c986cba18244e897a450f61
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
-/**
- * Finds the transfer index that best matches an Aave Pool event by logIndex proximity.
- * Among all unclaimed transfers matching the predicate, returns the one with the
- * highest logIndex that is still below eventLogIndex (i.e., the closest preceding transfer).
- * Falls back to the closest match overall if none precedes the event.
- */
-function findClosestTransfer(
-  transfers: TokenTransfer[],
-  claimedIndices: Set<number>,
-  eventLogIndex: number,
-  predicate: (t: TokenTransfer) => boolean,
-): number {
-  let bestIdx = -1;
-  let bestDistance = Infinity;
-
-  for (let i = 0; i < transfers.length; i++) {
-    if (claimedIndices.has(i)) continue;
-    if (!predicate(transfers[i])) continue;
-
-    const distance = eventLogIndex - transfers[i].logIndex;
-    // Prefer transfers that precede the event (distance > 0) and are closest
-    if (distance > 0 && distance < bestDistance) {
-      bestIdx = i;
-      bestDistance = distance;
-    }
-  }
-
-  // If no preceding match found, fall back to closest overall
-  if (bestIdx === -1) {
-    for (let i = 0; i < transfers.length; i++) {
-      if (claimedIndices.has(i)) continue;
-      if (!predicate(transfers[i])) continue;
-
-      const distance = Math.abs(eventLogIndex - transfers[i].logIndex);
-      if (distance < bestDistance) {
-        bestIdx = i;
-        bestDistance = distance;
-      }
-    }
-  }
-
-  return bestIdx;
-}
-
 export interface AaveSupplyResult {
   operation: AaveSupplyOperation;
   transferIndicesToRemove: number[];
@@ -83,7 +39,6 @@ export interface AaveWithdrawResult {
 export function detectAaveSupplies(
   logs: MoralisTransactionLog[],
   transfers: TokenTransfer[],
-  claimedIndices: Set<number> = new Set(),
 ): AaveSupplyResult[] {
   const results: AaveSupplyResult[] = [];
 
@@ -101,28 +56,46 @@ export function detectAaveSupplies(
     const userLower = user.toLowerCase();
     const onBehalfOfLower = onBehalfOfRaw.toLowerCase();
 
-    const eventLogIndex = parseInt(log.log_index);
     const indicesToRemove: number[] = [];
+    const eventLogIndex = parseInt(log.log_index);
 
-    // Find underlying token transfer: tokenAddress matches reserve AND from matches user
-    const underlyingIdx = findClosestTransfer(transfers, claimedIndices, eventLogIndex,
-      (t) => t.tokenAddress.toLowerCase() === reserveLower && t.from.toLowerCase() === userLower,
-    );
-    if (underlyingIdx !== -1) {
-      indicesToRemove.push(underlyingIdx);
-      claimedIndices.add(underlyingIdx);
+    // Find underlying token transfer: tokenAddress matches reserve AND from matches user, closest logIndex <= event
+    let underlyingIdx = -1;
+    let underlyingDist = Infinity;
+    for (let i = 0; i < transfers.length; i++) {
+      const t = transfers[i];
+      if (
+        t.tokenAddress.toLowerCase() === reserveLower &&
+        t.from.toLowerCase() === userLower &&
+        t.logIndex <= eventLogIndex
+      ) {
+        const dist = eventLogIndex - t.logIndex;
+        if (dist < underlyingDist) {
+          underlyingIdx = i;
+          underlyingDist = dist;
+        }
+      }
     }
+    if (underlyingIdx !== -1) indicesToRemove.push(underlyingIdx);
 
-    // Find aToken mint: from is zero address AND to matches onBehalfOf
-    const mintIdx = findClosestTransfer(transfers, claimedIndices, eventLogIndex,
-      (t) =>
+    // Find aToken mint: from is zero address AND to matches onBehalfOf, closest logIndex <= event
+    let mintIdx = -1;
+    let mintDist = Infinity;
+    for (let i = 0; i < transfers.length; i++) {
+      const t = transfers[i];
+      if (
         t.from.toLowerCase() === ZERO_ADDRESS &&
-        (t.to.toLowerCase() === onBehalfOfLower || t.to.toLowerCase() === userLower),
-    );
-    if (mintIdx !== -1) {
-      indicesToRemove.push(mintIdx);
-      claimedIndices.add(mintIdx);
+        (t.to.toLowerCase() === onBehalfOfLower || t.to.toLowerCase() === userLower) &&
+        t.logIndex <= eventLogIndex
+      ) {
+        const dist = eventLogIndex - t.logIndex;
+        if (dist < mintDist) {
+          mintIdx = i;
+          mintDist = dist;
+        }
+      }
     }
+    if (mintIdx !== -1) indicesToRemove.push(mintIdx);
 
     // Get token metadata from the underlying transfer if found
     const metadataTransfer = underlyingIdx !== -1 ? transfers[underlyingIdx] : null;
@@ -163,7 +136,6 @@ export function detectAaveSupplies(
 export function detectAaveBorrows(
   logs: MoralisTransactionLog[],
   transfers: TokenTransfer[],
-  claimedIndices: Set<number> = new Set(),
 ): AaveBorrowResult[] {
   const results: AaveBorrowResult[] = [];
 
@@ -174,37 +146,51 @@ export function detectAaveBorrows(
 
     const reserve = extractAddressFromTopic(log.topic1);
     const onBehalfOfRaw = extractAddressFromTopic(log.topic2);
-    const user = extractAddressFromData(log.data, 0);
     const amount = decodeUint256FromData(log.data, 1);
 
     const reserveLower = reserve.toLowerCase();
     const onBehalfOfLower = onBehalfOfRaw.toLowerCase();
-    const userLower = user.toLowerCase();
 
-    const eventLogIndex = parseInt(log.log_index);
     const indicesToRemove: number[] = [];
+    const eventLogIndex = parseInt(log.log_index);
 
-    // Find underlying token transfer: tokenAddress matches reserve AND to matches onBehalfOf or user
-    // (when borrowing on behalf of someone else, tokens go to the initiating user, not onBehalfOf)
-    const underlyingIdx = findClosestTransfer(transfers, claimedIndices, eventLogIndex,
-      (t) => t.tokenAddress.toLowerCase() === reserveLower &&
-             (t.to.toLowerCase() === onBehalfOfLower || t.to.toLowerCase() === userLower),
-    );
-    if (underlyingIdx !== -1) {
-      indicesToRemove.push(underlyingIdx);
-      claimedIndices.add(underlyingIdx);
+    // Find underlying token transfer: tokenAddress matches reserve AND to matches onBehalfOf, closest logIndex <= event
+    let underlyingIdx = -1;
+    let underlyingDist = Infinity;
+    for (let i = 0; i < transfers.length; i++) {
+      const t = transfers[i];
+      if (
+        t.tokenAddress.toLowerCase() === reserveLower &&
+        t.to.toLowerCase() === onBehalfOfLower &&
+        t.logIndex <= eventLogIndex
+      ) {
+        const dist = eventLogIndex - t.logIndex;
+        if (dist < underlyingDist) {
+          underlyingIdx = i;
+          underlyingDist = dist;
+        }
+      }
     }
+    if (underlyingIdx !== -1) indicesToRemove.push(underlyingIdx);
 
-    // Find debt token mint: from is zero address AND to matches onBehalfOf
-    const debtMintIdx = findClosestTransfer(transfers, claimedIndices, eventLogIndex,
-      (t) =>
+    // Find debt token mint: from is zero address AND to matches onBehalfOf, closest logIndex <= event
+    let debtMintIdx = -1;
+    let debtMintDist = Infinity;
+    for (let i = 0; i < transfers.length; i++) {
+      const t = transfers[i];
+      if (
         t.from.toLowerCase() === ZERO_ADDRESS &&
-        t.to.toLowerCase() === onBehalfOfLower,
-    );
-    if (debtMintIdx !== -1) {
-      indicesToRemove.push(debtMintIdx);
-      claimedIndices.add(debtMintIdx);
+        t.to.toLowerCase() === onBehalfOfLower &&
+        t.logIndex <= eventLogIndex
+      ) {
+        const dist = eventLogIndex - t.logIndex;
+        if (dist < debtMintDist) {
+          debtMintIdx = i;
+          debtMintDist = dist;
+        }
+      }
     }
+    if (debtMintIdx !== -1) indicesToRemove.push(debtMintIdx);
 
     const metadataTransfer = underlyingIdx !== -1 ? transfers[underlyingIdx] : null;
 
@@ -237,7 +223,6 @@ export function detectAaveBorrows(
 export function detectAaveRepays(
   logs: MoralisTransactionLog[],
   transfers: TokenTransfer[],
-  claimedIndices: Set<number> = new Set(),
 ): AaveRepayResult[] {
   const results: AaveRepayResult[] = [];
 
@@ -255,26 +240,46 @@ export function detectAaveRepays(
     const repayerLower = repayerRaw.toLowerCase();
     const userLower = userRaw.toLowerCase();
 
-    const eventLogIndex = parseInt(log.log_index);
     const indicesToRemove: number[] = [];
+    const eventLogIndex = parseInt(log.log_index);
 
-    // Find underlying token transfer: tokenAddress matches reserve AND from matches repayer
-    const underlyingIdx = findClosestTransfer(transfers, claimedIndices, eventLogIndex,
-      (t) => t.tokenAddress.toLowerCase() === reserveLower && t.from.toLowerCase() === repayerLower,
-    );
-    if (underlyingIdx !== -1) {
-      indicesToRemove.push(underlyingIdx);
-      claimedIndices.add(underlyingIdx);
+    // Find underlying token transfer: tokenAddress matches reserve AND from matches repayer, closest logIndex <= event
+    let underlyingIdx = -1;
+    let underlyingDist = Infinity;
+    for (let i = 0; i < transfers.length; i++) {
+      const t = transfers[i];
+      if (
+        t.tokenAddress.toLowerCase() === reserveLower &&
+        t.from.toLowerCase() === repayerLower &&
+        t.logIndex <= eventLogIndex
+      ) {
+        const dist = eventLogIndex - t.logIndex;
+        if (dist < underlyingDist) {
+          underlyingIdx = i;
+          underlyingDist = dist;
+        }
+      }
     }
+    if (underlyingIdx !== -1) indicesToRemove.push(underlyingIdx);
 
-    // Find debt token burn: from matches user (debtor) AND to is zero address
-    const debtBurnIdx = findClosestTransfer(transfers, claimedIndices, eventLogIndex,
-      (t) => t.from.toLowerCase() === userLower && t.to.toLowerCase() === ZERO_ADDRESS,
-    );
-    if (debtBurnIdx !== -1) {
-      indicesToRemove.push(debtBurnIdx);
-      claimedIndices.add(debtBurnIdx);
+    // Find debt token burn: from = user (whose debt), to = zero address, closest logIndex <= event
+    let debtBurnIdx = -1;
+    let debtBurnDist = Infinity;
+    for (let i = 0; i < transfers.length; i++) {
+      const t = transfers[i];
+      if (
+        t.from.toLowerCase() === userLower &&
+        t.to.toLowerCase() === ZERO_ADDRESS &&
+        t.logIndex <= eventLogIndex
+      ) {
+        const dist = eventLogIndex - t.logIndex;
+        if (dist < debtBurnDist) {
+          debtBurnIdx = i;
+          debtBurnDist = dist;
+        }
+      }
     }
+    if (debtBurnIdx !== -1) indicesToRemove.push(debtBurnIdx);
 
     const metadataTransfer = underlyingIdx !== -1 ? transfers[underlyingIdx] : null;
 
@@ -287,7 +292,7 @@ export function detectAaveRepays(
     results.push({
       operation: {
         type: 'aave-repay',
-        logIndex: eventLogIndex,
+        logIndex: parseInt(log.log_index),
         asset: reserve,
         assetName: metadataTransfer?.tokenName ?? 'Unknown',
         assetSymbol: metadataTransfer?.tokenSymbol ?? '???',
@@ -314,7 +319,6 @@ export function detectAaveRepays(
 export function detectAaveWithdraws(
   logs: MoralisTransactionLog[],
   transfers: TokenTransfer[],
-  claimedIndices: Set<number> = new Set(),
 ): AaveWithdrawResult[] {
   const results: AaveWithdrawResult[] = [];
 
@@ -333,26 +337,46 @@ export function detectAaveWithdraws(
     const toLower = toRaw.toLowerCase();
     const recipient = toLower === userLower ? userLower : toLower;
 
-    const eventLogIndex = parseInt(log.log_index);
     const indicesToRemove: number[] = [];
 
-    // Find aToken burn: from = user, to = zero address
-    const burnIdx = findClosestTransfer(transfers, claimedIndices, eventLogIndex,
-      (t) => t.from.toLowerCase() === userLower && t.to.toLowerCase() === ZERO_ADDRESS,
-    );
-    if (burnIdx !== -1) {
-      indicesToRemove.push(burnIdx);
-      claimedIndices.add(burnIdx);
+    // Find aToken burn: from = user, to = zero address, closest logIndex <= event
+    const eventLogIndex = parseInt(log.log_index);
+    let burnIdx = -1;
+    let burnDist = Infinity;
+    for (let i = 0; i < transfers.length; i++) {
+      const t = transfers[i];
+      if (
+        t.from.toLowerCase() === userLower &&
+        t.to.toLowerCase() === ZERO_ADDRESS &&
+        t.logIndex <= eventLogIndex
+      ) {
+        const dist = eventLogIndex - t.logIndex;
+        if (dist < burnDist) {
+          burnIdx = i;
+          burnDist = dist;
+        }
+      }
     }
+    if (burnIdx !== -1) indicesToRemove.push(burnIdx);
 
-    // Find underlying token transfer: tokenAddress = reserve, to = recipient
-    const underlyingIdx = findClosestTransfer(transfers, claimedIndices, eventLogIndex,
-      (t) => t.tokenAddress.toLowerCase() === reserveLower && t.to.toLowerCase() === recipient,
-    );
-    if (underlyingIdx !== -1) {
-      indicesToRemove.push(underlyingIdx);
-      claimedIndices.add(underlyingIdx);
+    // Find underlying token transfer: tokenAddress = reserve, to = recipient, closest logIndex <= event
+    let underlyingIdx = -1;
+    let underlyingDist = Infinity;
+    for (let i = 0; i < transfers.length; i++) {
+      const t = transfers[i];
+      if (
+        t.tokenAddress.toLowerCase() === reserveLower &&
+        t.to.toLowerCase() === recipient &&
+        t.logIndex <= eventLogIndex
+      ) {
+        const dist = eventLogIndex - t.logIndex;
+        if (dist < underlyingDist) {
+          underlyingIdx = i;
+          underlyingDist = dist;
+        }
+      }
     }
+    if (underlyingIdx !== -1) indicesToRemove.push(underlyingIdx);
 
     const metadataTransfer = underlyingIdx !== -1 ? transfers[underlyingIdx] : null;
 
@@ -362,7 +386,7 @@ export function detectAaveWithdraws(
     results.push({
       operation: {
         type: 'aave-withdraw',
-        logIndex: eventLogIndex,
+        logIndex: parseInt(log.log_index),
         asset: reserve,
         assetName: metadataTransfer?.tokenName ?? 'Unknown',
         assetSymbol: metadataTransfer?.tokenSymbol ?? '???',
