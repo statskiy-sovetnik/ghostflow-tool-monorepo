@@ -306,16 +306,38 @@ function detectV3RemoveLiquidity(
 
     // Use NPM→user transfers for display (what the user actually receives)
     // Consume pool→NPM transfers too
-    const displayTransfers = [npmToUser0, npmToUser1].filter(Boolean) as { index: number; transfer: TokenTransfer }[];
+    let displayTransfers = [npmToUser0, npmToUser1].filter(Boolean) as { index: number; transfer: TokenTransfer }[];
     const poolTransfers = [poolToNpm0, poolToNpm1].filter(Boolean) as { index: number; transfer: TokenTransfer }[];
+
+    // Fallback: direct pool → user transfers (NPM specifies user as recipient in pool.collect())
+    if (displayTransfers.length === 0) {
+      const direct0 = findClosestTransfer(transfers, anchorLogIndex, 'after',
+        (t) => t.from.toLowerCase() === poolLower && t.to.toLowerCase() !== npmLower && t.to.toLowerCase() !== poolLower,
+        usedIndices);
+      if (direct0) {
+        const directPoolToUser: { index: number; transfer: TokenTransfer }[] = [direct0];
+        const exclude = new Set(usedIndices);
+        exclude.add(direct0.index);
+        const direct1 = findClosestTransfer(transfers, anchorLogIndex, 'after',
+          (t) => t.from.toLowerCase() === poolLower && t.to.toLowerCase() === direct0.transfer.to.toLowerCase() &&
+            t.tokenAddress.toLowerCase() !== direct0.transfer.tokenAddress.toLowerCase(),
+          exclude);
+        if (direct1) directPoolToUser.push(direct1);
+        displayTransfers = directPoolToUser;
+      }
+    }
 
     if (displayTransfers.length === 0) continue;
 
-    // Verify pool via CREATE2 using pool→NPM transfer tokens
-    if (poolTransfers.length >= 2) {
-      if (!verifyV3Pool(poolAddress, poolTransfers[0].transfer.tokenAddress, poolTransfers[1].transfer.tokenAddress)) continue;
-    } else if (poolTransfers.length === 1 && displayTransfers.length >= 1) {
-      // One-sided — can't fully verify but NPM check is sufficient
+    // Verify pool via CREATE2 using available transfer tokens
+    const verifyTokens = poolTransfers.length >= 2
+      ? [poolTransfers[0].transfer.tokenAddress, poolTransfers[1].transfer.tokenAddress]
+      : displayTransfers.length >= 2
+        ? [displayTransfers[0].transfer.tokenAddress, displayTransfers[1].transfer.tokenAddress]
+        : null;
+
+    if (verifyTokens) {
+      if (!verifyV3Pool(poolAddress, verifyTokens[0], verifyTokens[1])) continue;
     }
 
     const recipient = displayTransfers[0].transfer.to.toLowerCase();
@@ -417,7 +439,24 @@ function detectV3CollectFees(
       }
     }
 
-    const displayTransfers = [npmToUser0, npmToUser1].filter(Boolean) as { index: number; transfer: TokenTransfer }[];
+    let displayTransfers = [npmToUser0, npmToUser1].filter(Boolean) as { index: number; transfer: TokenTransfer }[];
+
+    // Fallback: direct pool → user transfers (no NPM intermediary)
+    if (displayTransfers.length === 0 && poolToNpm.length === 0) {
+      const directTransfers: { index: number; transfer: TokenTransfer }[] = [];
+      for (let i = 0; i < transfers.length; i++) {
+        if (usedIndices.has(i)) continue;
+        const t = transfers[i];
+        if (t.from.toLowerCase() !== npmLower && t.to.toLowerCase() !== npmLower
+            && t.logIndex >= anchorLogIndex - 5 && t.logIndex <= anchorLogIndex + 5) {
+          directTransfers.push({ index: i, transfer: t });
+        }
+      }
+      if (directTransfers.length > 0) {
+        const recipient = directTransfers[0].transfer.to.toLowerCase();
+        displayTransfers = directTransfers.filter(d => d.transfer.to.toLowerCase() === recipient);
+      }
+    }
 
     // Check for WETH unwrap: pool→NPM has WETH but no NPM→user WETH transfer
     const displayTokenAddrs = new Set(displayTransfers.map(d => d.transfer.tokenAddress.toLowerCase()));

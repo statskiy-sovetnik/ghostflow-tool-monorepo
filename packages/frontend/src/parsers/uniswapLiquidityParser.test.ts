@@ -300,6 +300,83 @@ describe('detectUniswapLiquidity', () => {
       // All 4 transfers consumed (pool→NPM + NPM→user for each token)
       expect(result.transferIndicesToRemove).toHaveLength(4);
     });
+
+    it('detects V3 remove liquidity with direct pool→user transfers (no NPM intermediary)', () => {
+      const poolAddress = computeV3PoolAddress(USDC, DAI, 500);
+
+      const logs: MoralisTransactionLog[] = [
+        // Pool Burn
+        makeLog({
+          address: poolAddress,
+          topic0: V3_POOL_BURN_TOPIC0,
+          log_index: '647',
+        }),
+        // DecreaseLiquidity from NPM
+        makeLog({
+          address: UNISWAP_V3_NPM,
+          topic0: V3_DECREASE_LIQUIDITY_TOPIC0,
+          topic1: TOKEN_ID_1,
+          data: '0x' + '0'.repeat(64 * 3),
+          log_index: '648',
+        }),
+        // Pool Collect (pool-level)
+        makeLog({
+          address: poolAddress,
+          topic0: '0x70935338e69775456a85ddef226c395fb668b63fa0115f5f20610b388e6ca9c0',
+          log_index: '651',
+        }),
+        // NPM Collect (same tokenId as DecreaseLiquidity)
+        makeLog({
+          address: UNISWAP_V3_NPM,
+          topic0: V3_NPM_COLLECT_TOPIC0,
+          topic1: TOKEN_ID_1,
+          log_index: '652',
+        }),
+      ];
+
+      const transfers: TokenTransfer[] = [
+        // Direct pool → user (USDC) — no pool→NPM or NPM→user
+        makeTransfer({
+          from: poolAddress,
+          to: USER,
+          tokenAddress: USDC,
+          tokenName: 'USD Coin',
+          tokenSymbol: 'USDC',
+          amount: '500000',
+          decimals: 6,
+          logIndex: 649,
+        }),
+        // Direct pool → user (DAI)
+        makeTransfer({
+          from: poolAddress,
+          to: USER,
+          tokenAddress: DAI,
+          tokenName: 'Dai',
+          tokenSymbol: 'DAI',
+          amount: '500000000000000000000',
+          decimals: 18,
+          logIndex: 650,
+        }),
+      ];
+
+      const result = detectUniswapLiquidity(logs, transfers, [], USER);
+
+      expect(result.operations).toHaveLength(1);
+      const op = result.operations[0];
+      expect(op.type).toBe('uniswap-remove-liquidity');
+      expect(op.version).toBe('v3');
+      if (op.type === 'uniswap-remove-liquidity') {
+        expect(op.recipient).toBe(USER);
+        expect([op.token0.symbol, op.token1.symbol].sort()).toEqual(['DAI', 'USDC']);
+      }
+      // Both direct transfers consumed
+      expect(result.transferIndicesToRemove).toHaveLength(2);
+      expect(result.transferIndicesToRemove).toContain(0);
+      expect(result.transferIndicesToRemove).toContain(1);
+      // No standalone collect-fees operation (same tokenId)
+      const collectOps = result.operations.filter((o) => o.type === 'uniswap-collect-fees');
+      expect(collectOps).toHaveLength(0);
+    });
   });
 
   describe('V3 Collect Fees', () => {
@@ -435,6 +512,63 @@ describe('detectUniswapLiquidity', () => {
       expect(result.transferIndicesToRemove).toHaveLength(3);
       // Both native transfers consumed
       expect(result.nativeTransfersToConsume).toHaveLength(2);
+    });
+
+    it('detects V3 collect fees with direct pool→user transfers (no NPM intermediary)', () => {
+      const poolAddress = computeV3PoolAddress(USDC, DAI, 500);
+
+      const logs: MoralisTransactionLog[] = [
+        // Pool Collect (pool-level)
+        makeLog({
+          address: poolAddress,
+          topic0: '0x70935338e69775456a85ddef226c395fb668b63fa0115f5f20610b388e6ca9c0',
+          log_index: '29',
+        }),
+        // NPM Collect (standalone — no DecreaseLiquidity with this tokenId)
+        makeLog({
+          address: UNISWAP_V3_NPM,
+          topic0: V3_NPM_COLLECT_TOPIC0,
+          topic1: TOKEN_ID_2,
+          log_index: '30',
+        }),
+      ];
+
+      const transfers: TokenTransfer[] = [
+        // Direct pool → user (USDC)
+        makeTransfer({
+          from: poolAddress,
+          to: USER,
+          tokenAddress: USDC,
+          tokenName: 'USD Coin',
+          tokenSymbol: 'USDC',
+          amount: '1234',
+          decimals: 6,
+          logIndex: 28,
+        }),
+        // Direct pool → user (DAI)
+        makeTransfer({
+          from: poolAddress,
+          to: USER,
+          tokenAddress: DAI,
+          tokenName: 'Dai',
+          tokenSymbol: 'DAI',
+          amount: '5678000000000000000',
+          decimals: 18,
+          logIndex: 29,
+        }),
+      ];
+
+      const result = detectUniswapLiquidity(logs, transfers, [], USER);
+
+      expect(result.operations).toHaveLength(1);
+      const op = result.operations[0];
+      expect(op.type).toBe('uniswap-collect-fees');
+      if (op.type === 'uniswap-collect-fees') {
+        expect(op.version).toBe('v3');
+        expect(op.collector).toBe(USER);
+        expect([op.token0.symbol, op.token1.symbol].sort()).toEqual(['DAI', 'USDC']);
+      }
+      expect(result.transferIndicesToRemove).toHaveLength(2);
     });
 
     it('does NOT detect collect fees when paired with DecreaseLiquidity (same tokenId)', () => {
