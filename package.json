@@ -8,8 +8,16 @@
     "build": "pnpm --filter frontend build",
     "preview": "pnpm --filter frontend preview"
   },
-  "keywords": ["ethereum", "transaction", "analyzer", "defi"],
+  "keywords": [
+    "ethereum",
+    "transaction",
+    "analyzer",
+    "defi"
+  ],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.26.1"
+  "packageManager": "pnpm@10.26.1",
+  "dependencies": {
+    "@vercel/analytics": "^1.6.1"
+  }
 }

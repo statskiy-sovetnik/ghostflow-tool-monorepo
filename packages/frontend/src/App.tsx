@@ -1,4 +1,5 @@
 import { useState, FormEvent } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { fetchTokenTransfers } from './services/moralis';
 import { useContractName } from './hooks/useContractName';
 import type { TokenTransfer, TransactionResult, AaveSupplyOperation, AaveBorrowOperation, AaveRepayOperation, AaveWithdrawOperation, UniswapSwapOperation, UniswapAddLiquidityOperation, UniswapRemoveLiquidityOperation, UniswapCollectFeesOperation, NativeTransfer, FlowItem } from './types/moralis';
@@ -479,6 +480,7 @@ function App() {
           </div>
         )}
       </div>
+      <Analytics />
     </div>
   );
 }

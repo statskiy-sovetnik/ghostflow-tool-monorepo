@@ -11,6 +11,7 @@
     "test:run": "vitest run"
   },
   "dependencies": {
+    "@vercel/analytics": "^1.6.1",
     "ethers": "^6.13.4",
     "moralis": "^2.27.2",
     "react": "^18.3.1",
