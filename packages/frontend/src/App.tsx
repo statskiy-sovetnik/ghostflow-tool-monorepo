@@ -424,6 +424,7 @@ function App() {
     }
 
     setResult({ type: 'loading' });
+    window.gtag?.('event', 'analyze_click', { tx_hash: trimmedHash });
 
     try {
       const transactionResult = await fetchTokenTransfers(trimmedHash);
