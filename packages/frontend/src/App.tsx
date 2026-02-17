@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import { useState, useRef, FormEvent } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { fetchTokenTransfers } from './services/moralis';
 import { useContractName } from './hooks/useContractName';
@@ -360,7 +360,7 @@ function TokenFlow({ flow }: { flow: FlowItem[] }) {
 
   return (
     <div className="token-flow">
-      <h3 className="token-flow-title">Token Flow ({flow.length})</h3>
+      <h3 className="token-flow-title">Token Flow ({flow.length}) <span className="token-flow-hint">Hold Shift + Mouse Scroll for horizontal scrolling</span></h3>
       <ul className="token-flow-list">
         {flow.map((item, index) => {
           if (item.kind === 'operation') {
@@ -400,9 +400,17 @@ function TokenFlow({ flow }: { flow: FlowItem[] }) {
   );
 }
 
+const EXAMPLE_TX_HASH = '0xcb3061fccc99753c9e6be8b2dd27f1b6030db263f42ce1c5310eb683573834f1';
+
 function App() {
   const [txHash, setTxHash] = useState('');
   const [result, setResult] = useState<ResultState>({ type: 'idle' });
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const handleExampleClick = () => {
+    setTxHash(EXAMPLE_TX_HASH);
+    setTimeout(() => formRef.current?.requestSubmit(), 0);
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -440,8 +448,13 @@ function App() {
           <p className="network-note">Ethereum mainnet only</p>
         </header>
 
-        <form onSubmit={handleSubmit} className="form">
-          <label className="input-label">Enter transaction hash</label>
+        <form onSubmit={handleSubmit} className="form" ref={formRef}>
+          <label className="input-label">
+            Enter transaction hash or{' '}
+            <button type="button" className="example-tx-button" onClick={handleExampleClick}>
+              Try this example tx
+            </button>
+          </label>
           <input
             type="text"
             value={txHash}
